@@ -1,20 +1,29 @@
 require('dotenv').config();
 const fs = require('fs');
 const path = require('path');
-const http = require('http');
+const express = require('express');
 const { Client, GatewayIntentBits, Partials, Collection, EmbedBuilder } = require('discord.js');
-const { init: initDb, pool } = require('./database');
+const { init: initDb, pool, healthCheck } = require('./database');
+const { buildDashboard } = require('./web/dashboard');
 
 const moderation = require('./commands/moderation');
 const leveling = require('./commands/leveling');
 const config = require('./commands/config');
 const automod = require('./commands/automod');
 const misc = require('./commands/misc');
+const antiraid = require('./commands/antiraid');
+const suggestions = require('./commands/suggestions');
+const giveaway = require('./commands/giveaway');
+const schedule = require('./commands/schedule');
+const language = require('./commands/language');
+const { startScheduler } = require('./utils/scheduler');
+const { getLang, t } = require('./utils/i18n');
 
 const guildMemberAdd = require('./events/guildMemberAdd');
 const messageCreate = require('./events/messageCreate');
 const reactionRoles = require('./events/reactionRoles');
 const roleMenu = require('./events/roleMenu');
+const suggestionReview = require('./events/suggestionReview');
 
 const client = new Client({
   intents: [
@@ -28,7 +37,9 @@ const client = new Client({
 });
 
 client.commands = new Collection();
-for (const cmd of [...moderation, ...leveling, ...config, ...automod, ...misc]) client.commands.set(cmd.data.name, cmd);
+for (const cmd of [...moderation, ...leveling, ...config, ...automod, ...misc, ...antiraid, ...suggestions, ...giveaway, ...schedule, ...language]) {
+  client.commands.set(cmd.data.name, cmd);
+}
 
 async function logError(guild, err, context) {
   console.error(`[${context}]`, err);
@@ -45,7 +56,6 @@ async function logError(guild, err, context) {
 
 client.once('ready', async () => {
   console.log(`✅ Logged in as ${client.user.tag}`);
-
   try {
     if (client.user.username !== 'Nexoria') await client.user.setUsername('Nexoria');
     const logoPath = path.join(__dirname, 'assets', 'logo.png');
@@ -55,19 +65,41 @@ client.once('ready', async () => {
   }
 });
 
+// Graceful reconnect handling — discord.js retries the gateway connection
+// automatically; these just make sure drops are visible instead of silent.
+client.on('error', (err) => console.error('⚠️ Client error (reconnecting):', err.message));
+client.on('shardError', (err, id) => console.error(`⚠️ Shard ${id} error (reconnecting):`, err.message));
+client.on('shardDisconnect', (event, id) => console.warn(`⚠️ Shard ${id} disconnected (code ${event.code}), attempting reconnect...`));
+client.on('shardReconnecting', (id) => console.log(`🔄 Shard ${id} reconnecting...`));
+client.on('shardResume', (id) => console.log(`✅ Shard ${id} resumed.`));
+process.on('unhandledRejection', (err) => console.error('⚠️ Unhandled rejection (continuing):', err));
+
 client.on('guildMemberAdd', (m) => guildMemberAdd(m).catch(err => logError(m.guild, err, 'guildMemberAdd')));
 client.on('messageCreate', (m) => messageCreate(m).catch(err => logError(m.guild, err, 'messageCreate')));
 client.on('messageReactionAdd', (r, u) => reactionRoles.add(r, u).catch(err => logError(r.message.guild, err, 'reactionAdd')));
 client.on('messageReactionRemove', (r, u) => reactionRoles.remove(r, u).catch(err => logError(r.message.guild, err, 'reactionRemove')));
 
+const commandCooldowns = new Map(); // userId -> last command timestamp
+const COOLDOWN_MS = 2000;
+
 client.on('interactionCreate', async (interaction) => {
   try {
     if (interaction.isChatInputCommand()) {
+      const last = commandCooldowns.get(interaction.user.id) || 0;
+      const now = Date.now();
+      if (now - last < COOLDOWN_MS) {
+        const lang = interaction.guild ? await getLang(interaction.guild.id) : 'en';
+        return interaction.reply({ content: t(lang, 'rateLimited'), ephemeral: true }).catch(() => {});
+      }
+      commandCooldowns.set(interaction.user.id, now);
+
       const command = client.commands.get(interaction.commandName);
       if (!command) return;
       await command.execute(interaction);
     } else if (interaction.isStringSelectMenu()) {
       await roleMenu(interaction);
+    } else if (interaction.isButton()) {
+      await suggestionReview(interaction);
     }
   } catch (err) {
     await logError(interaction.guild, err, `interaction:${interaction.commandName || interaction.customId}`);
@@ -77,12 +109,24 @@ client.on('interactionCreate', async (interaction) => {
   }
 });
 
-// Render's free web service tier requires an open HTTP port — also gives
-// you a URL to ping with UptimeRobot so the service doesn't sleep.
-const server = http.createServer((_, res) => res.end('Nexoria is online.'));
-server.listen(process.env.PORT || 3000);
+// Express app: serves the OAuth dashboard, a real DB-checking health
+// endpoint, and satisfies Render's free-tier "open port" requirement.
+const app = express();
+
+app.get('/health', async (_, res) => {
+  try {
+    await healthCheck();
+    res.status(200).json({ status: 'ok', discord: client.isReady() ? 'connected' : 'connecting' });
+  } catch (err) {
+    res.status(500).json({ status: 'error', message: err.message });
+  }
+});
+
+app.use('/', buildDashboard(client));
 
 (async () => {
   await initDb();
+  app.listen(process.env.PORT || 3000, () => console.log('🌐 Dashboard + health check listening.'));
   await client.login(process.env.DISCORD_TOKEN);
+  startScheduler(client);
 })();

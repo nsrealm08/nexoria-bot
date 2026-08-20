@@ -1,5 +1,5 @@
 const { pool } = require('../database');
-const { logAction } = require('./caseLog');
+const { recordCase } = require('./cases');
 
 const spamTracker = new Map(); // userId -> timestamps[]
 const INVITE_REGEX = /(discord\.gg|discord(app)?\.com\/invite)\/[a-zA-Z0-9-]+/i;
@@ -34,11 +34,9 @@ async function checkMessage(message) {
   if (!violation) return;
 
   await message.delete().catch(() => {});
-  await pool.query('INSERT INTO warnings (guild_id, user_id, moderator_id, reason, timestamp) VALUES ($1,$2,$3,$4,$5)',
-    [message.guild.id, message.author.id, message.client.user.id, `Automod: ${violation}`, Date.now()]);
-  await logAction(message.guild, {
-    action: `Automod — ${violation}`, target: message.author, moderator: 'Nexoria Automod',
-    reason: message.content.slice(0, 200), color: 'DarkRed'
+  await recordCase(message.guild, {
+    action: 'Automod Warn', target: message.author, moderator: 'Nexoria Automod',
+    reason: `${violation}: ${message.content.slice(0, 200)}`, color: 'DarkRed'
   });
 }
 

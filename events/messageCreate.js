@@ -2,9 +2,16 @@ const { EmbedBuilder } = require('discord.js');
 const { pool } = require('../database');
 const { addXp, isNoXp, getLevelRewards } = require('../utils/leveling');
 const { checkMessage } = require('../utils/automod');
+const { getLang, t } = require('../utils/i18n');
 
 module.exports = async (message) => {
   if (message.author.bot || !message.guild) return;
+
+  const today = new Date().toISOString().slice(0, 10);
+  await pool.query(
+    `INSERT INTO guild_daily_stats (guild_id, day, member_count, message_count) VALUES ($1,$2,$3,1)
+     ON CONFLICT (guild_id, day) DO UPDATE SET message_count = guild_daily_stats.message_count + 1`,
+    [message.guild.id, today, message.guild.memberCount]).catch(() => {});
 
   await checkMessage(message).catch(err => console.error('Automod error:', err));
   if (message.deleted) return; // automod removed it, skip XP
@@ -18,8 +25,9 @@ module.exports = async (message) => {
   const settings = rows[0];
   const channel = settings?.level_channel ? message.guild.channels.cache.get(settings.level_channel) : message.channel;
   if (channel) {
+    const lang = await getLang(message.guild.id);
     await channel.send({ embeds: [new EmbedBuilder().setColor('Purple')
-      .setDescription(`🎉 ${message.author} leveled up to **Level ${newLevel}**!`)] }).catch(() => {});
+      .setDescription(t(lang, 'levelUp', { user: message.author.toString(), level: newLevel }))] }).catch(() => {});
   }
 
   const rewards = await getLevelRewards(message.guild.id);

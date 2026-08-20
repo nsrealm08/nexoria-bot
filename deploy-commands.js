@@ -5,8 +5,13 @@ const leveling = require('./commands/leveling');
 const config = require('./commands/config');
 const automod = require('./commands/automod');
 const misc = require('./commands/misc');
+const antiraid = require('./commands/antiraid');
+const suggestions = require('./commands/suggestions');
+const giveaway = require('./commands/giveaway');
+const schedule = require('./commands/schedule');
+const language = require('./commands/language');
 
-const commands = [...moderation, ...leveling, ...config, ...automod, ...misc].map(c => c.data.toJSON());
+const commands = [...moderation, ...leveling, ...config, ...automod, ...misc, ...antiraid, ...suggestions, ...giveaway, ...schedule, ...language].map(c => c.data.toJSON());
 const rest = new REST().setToken(process.env.DISCORD_TOKEN);
 
 (async () => {

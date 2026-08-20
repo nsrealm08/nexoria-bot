@@ -1,17 +1,26 @@
-const { EmbedBuilder } = require('discord.js');
+const { EmbedBuilder, AttachmentBuilder } = require('discord.js');
 const { pool } = require('../database');
+const { buildWelcomeCard } = require('../utils/welcomeCard');
+const { checkJoin } = require('../utils/antiraid');
+const { getLang, t } = require('../utils/i18n');
 
 module.exports = async (member) => {
+  await checkJoin(member);
+
   const { rows } = await pool.query('SELECT * FROM settings WHERE guild_id=$1', [member.guild.id]);
   const settings = rows[0];
   if (!settings?.welcome_channel) return;
   const channel = member.guild.channels.cache.get(settings.welcome_channel);
   if (!channel) return;
 
-  const text = (settings.welcome_msg || 'Welcome {user} to {server}!')
+  const lang = await getLang(member.guild.id);
+  const text = (settings.welcome_msg || t(lang, 'welcome'))
     .replace('{user}', `<@${member.id}>`)
     .replace('{server}', member.guild.name);
 
-  await channel.send({ embeds: [new EmbedBuilder().setColor('Green').setDescription(text)
-    .setThumbnail(member.user.displayAvatarURL())] });
+  const buffer = await buildWelcomeCard(member);
+  const attachment = new AttachmentBuilder(buffer, { name: 'welcome.png' });
+  const embed = new EmbedBuilder().setColor('Green').setDescription(text).setImage('attachment://welcome.png');
+
+  await channel.send({ embeds: [embed], files: [attachment] }).catch(() => {});
 };
