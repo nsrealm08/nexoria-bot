@@ -1,8 +1,12 @@
-const BASE = process.env.BASE_URL;
+const BASE = (process.env.BASE_URL || '').replace(/\/+$/, '');
 const CLIENT_ID = process.env.CLIENT_ID;
 const CLIENT_SECRET = process.env.DISCORD_CLIENT_SECRET;
 const REDIRECT_URI = `${BASE}/callback`;
 const MANAGE_GUILD = 0x20;
+
+if (!BASE) {
+  console.error('❌ BASE_URL is not set — OAuth login will fail with "Not a well formed URL." Set it in Render\'s Environment tab to your service URL, e.g. https://nexoria-bot-x22a.onrender.com (no trailing slash).');
+}
 
 function getAuthUrl() {
   const params = new URLSearchParams({
@@ -25,7 +29,8 @@ async function exchangeCode(code) {
   const res = await fetch('https://discord.com/api/oauth2/token', {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body
+    body,
+    signal: AbortSignal.timeout(10000)
   });
   if (!res.ok) throw new Error(`Token exchange failed: ${res.status}`);
   return res.json();
@@ -33,7 +38,8 @@ async function exchangeCode(code) {
 
 async function fetchUser(accessToken) {
   const res = await fetch('https://discord.com/api/users/@me', {
-    headers: { Authorization: `Bearer ${accessToken}` }
+    headers: { Authorization: `Bearer ${accessToken}` },
+    signal: AbortSignal.timeout(10000)
   });
   if (!res.ok) throw new Error(`Fetch user failed: ${res.status}`);
   return res.json();
@@ -41,7 +47,8 @@ async function fetchUser(accessToken) {
 
 async function fetchManageableGuilds(accessToken) {
   const res = await fetch('https://discord.com/api/users/@me/guilds', {
-    headers: { Authorization: `Bearer ${accessToken}` }
+    headers: { Authorization: `Bearer ${accessToken}` },
+    signal: AbortSignal.timeout(10000)
   });
   if (!res.ok) throw new Error(`Fetch guilds failed: ${res.status}`);
   const guilds = await res.json();
