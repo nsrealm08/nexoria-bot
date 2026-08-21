@@ -76,8 +76,12 @@ async function init() {
       guild_id TEXT, day DATE, member_count INTEGER DEFAULT 0, message_count INTEGER DEFAULT 0,
       PRIMARY KEY (guild_id, day)
     );
+    ALTER TABLE settings ADD COLUMN IF NOT EXISTS mute_role TEXT;
+    ALTER TABLE settings ADD COLUMN IF NOT EXISTS suggestions_channel TEXT;
     ALTER TABLE settings ADD COLUMN IF NOT EXISTS warn_expire_days INTEGER;
     ALTER TABLE settings ADD COLUMN IF NOT EXISTS language TEXT DEFAULT 'en';
+    ALTER TABLE reaction_roles ADD COLUMN IF NOT EXISTS group_name TEXT;
+    ALTER TABLE reaction_roles ADD COLUMN IF NOT EXISTS exclusive BOOLEAN DEFAULT FALSE;
   `);
   console.log('✅ Database ready.');
 }

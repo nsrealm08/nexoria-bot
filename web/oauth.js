@@ -52,7 +52,12 @@ async function fetchManageableGuilds(accessToken) {
   });
   if (!res.ok) throw new Error(`Fetch guilds failed: ${res.status}`);
   const guilds = await res.json();
-  return guilds.filter(g => (BigInt(g.permissions) & BigInt(MANAGE_GUILD)) === BigInt(MANAGE_GUILD));
+  return guilds
+    .filter(g => (BigInt(g.permissions) & BigInt(MANAGE_GUILD)) === BigInt(MANAGE_GUILD))
+    .map(g => ({
+      ...g,
+      iconURL: g.icon ? `https://cdn.discordapp.com/icons/${g.id}/${g.icon}.png?size=64` : null
+    }));
 }
 
 module.exports = { getAuthUrl, exchangeCode, fetchUser, fetchManageableGuilds };
