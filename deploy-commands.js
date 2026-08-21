@@ -10,8 +10,10 @@ const suggestions = require('./commands/suggestions');
 const giveaway = require('./commands/giveaway');
 const schedule = require('./commands/schedule');
 const language = require('./commands/language');
+const tickets = require('./commands/tickets');
+const info = require('./commands/info');
 
-const commands = [...moderation, ...leveling, ...config, ...automod, ...misc, ...antiraid, ...suggestions, ...giveaway, ...schedule, ...language].map(c => c.data.toJSON());
+const commands = [...moderation, ...leveling, ...config, ...automod, ...misc, ...antiraid, ...suggestions, ...giveaway, ...schedule, ...language, ...tickets, ...info].map(c => c.data.toJSON());
 const rest = new REST().setToken(process.env.DISCORD_TOKEN);
 
 (async () => {

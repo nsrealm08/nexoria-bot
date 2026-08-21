@@ -1,8 +1,9 @@
-const { EmbedBuilder } = require('discord.js');
+const { EmbedBuilder, AttachmentBuilder } = require('discord.js');
 const { pool } = require('../database');
 const { addXp, isNoXp, getLevelRewards } = require('../utils/leveling');
 const { checkMessage } = require('../utils/automod');
 const { getLang, t } = require('../utils/i18n');
+const { buildLevelUpCard } = require('../utils/levelUpCard');
 
 module.exports = async (message) => {
   if (message.author.bot || !message.guild) return;
@@ -18,16 +19,28 @@ module.exports = async (message) => {
 
   if (await isNoXp(message.guild.id, message.channel.id)) return;
 
-  const newLevel = await addXp(message.guild.id, message.author.id);
-  if (newLevel === null) return;
+  const result = await addXp(message.guild.id, message.author.id);
+  if (!result) return;
+  const { oldLevel, newLevel, xp } = result;
 
   const { rows } = await pool.query('SELECT * FROM settings WHERE guild_id=$1', [message.guild.id]);
   const settings = rows[0];
   const channel = settings?.level_channel ? message.guild.channels.cache.get(settings.level_channel) : message.channel;
   if (channel) {
-    const lang = await getLang(message.guild.id);
-    await channel.send({ embeds: [new EmbedBuilder().setColor('Purple')
-      .setDescription(t(lang, 'levelUp', { user: message.author.toString(), level: newLevel }))] }).catch(() => {});
+    try {
+      const buffer = await buildLevelUpCard(message.author, oldLevel, newLevel, xp);
+      const attachment = new AttachmentBuilder(buffer, { name: 'levelup.png' });
+      const lang = await getLang(message.guild.id);
+      await channel.send({
+        content: t(lang, 'levelUp', { user: message.author.toString(), level: newLevel }),
+        files: [attachment]
+      });
+    } catch (err) {
+      console.error('Level-up card render failed, falling back to text:', err);
+      const lang = await getLang(message.guild.id);
+      await channel.send({ embeds: [new EmbedBuilder().setColor('Purple')
+        .setDescription(t(lang, 'levelUp', { user: message.author.toString(), level: newLevel }))] }).catch(() => {});
+    }
   }
 
   const rewards = await getLevelRewards(message.guild.id);

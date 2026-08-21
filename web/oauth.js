@@ -50,6 +50,10 @@ async function fetchManageableGuilds(accessToken) {
     headers: { Authorization: `Bearer ${accessToken}` },
     signal: AbortSignal.timeout(10000)
   });
+  if (res.status === 429) {
+    const retryAfter = res.headers.get('retry-after');
+    throw new Error(`Discord is rate-limiting this request — try again in ${retryAfter || 'a few'} seconds.`);
+  }
   if (!res.ok) throw new Error(`Fetch guilds failed: ${res.status}`);
   const guilds = await res.json();
   return guilds

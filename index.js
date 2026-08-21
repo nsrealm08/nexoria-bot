@@ -16,6 +16,8 @@ const suggestions = require('./commands/suggestions');
 const giveaway = require('./commands/giveaway');
 const schedule = require('./commands/schedule');
 const language = require('./commands/language');
+const tickets = require('./commands/tickets');
+const info = require('./commands/info');
 const { startScheduler } = require('./utils/scheduler');
 const { getLang, t } = require('./utils/i18n');
 
@@ -24,6 +26,7 @@ const messageCreate = require('./events/messageCreate');
 const reactionRoles = require('./events/reactionRoles');
 const roleMenu = require('./events/roleMenu');
 const suggestionReview = require('./events/suggestionReview');
+const ticketHandler = require('./events/ticketHandler');
 
 const client = new Client({
   intents: [
@@ -37,7 +40,7 @@ const client = new Client({
 });
 
 client.commands = new Collection();
-for (const cmd of [...moderation, ...leveling, ...config, ...automod, ...misc, ...antiraid, ...suggestions, ...giveaway, ...schedule, ...language]) {
+for (const cmd of [...moderation, ...leveling, ...config, ...automod, ...misc, ...antiraid, ...suggestions, ...giveaway, ...schedule, ...language, ...tickets, ...info]) {
   client.commands.set(cmd.data.name, cmd);
 }
 
@@ -99,7 +102,11 @@ client.on('interactionCreate', async (interaction) => {
     } else if (interaction.isStringSelectMenu()) {
       await roleMenu(interaction);
     } else if (interaction.isButton()) {
-      await suggestionReview(interaction);
+      if (interaction.customId.startsWith('nexoria-open-ticket') || interaction.customId.startsWith('nexoria-close-ticket')) {
+        await ticketHandler(interaction);
+      } else {
+        await suggestionReview(interaction);
+      }
     }
   } catch (err) {
     await logError(interaction.guild, err, `interaction:${interaction.commandName || interaction.customId}`);

@@ -23,7 +23,8 @@ async function init() {
     CREATE TABLE IF NOT EXISTS settings (
       guild_id TEXT PRIMARY KEY, welcome_channel TEXT, welcome_msg TEXT,
       level_channel TEXT, log_channel TEXT, mute_role TEXT, suggestions_channel TEXT,
-      warn_expire_days INTEGER, language TEXT DEFAULT 'en'
+      warn_expire_days INTEGER, language TEXT DEFAULT 'en',
+      ticket_channel TEXT, ticket_staff_role TEXT
     );
     CREATE TABLE IF NOT EXISTS reaction_roles (
       message_id TEXT, emoji TEXT, role_id TEXT, guild_id TEXT,
@@ -82,6 +83,8 @@ async function init() {
     ALTER TABLE settings ADD COLUMN IF NOT EXISTS language TEXT DEFAULT 'en';
     ALTER TABLE reaction_roles ADD COLUMN IF NOT EXISTS group_name TEXT;
     ALTER TABLE reaction_roles ADD COLUMN IF NOT EXISTS exclusive BOOLEAN DEFAULT FALSE;
+    ALTER TABLE settings ADD COLUMN IF NOT EXISTS ticket_channel TEXT;
+    ALTER TABLE settings ADD COLUMN IF NOT EXISTS ticket_staff_role TEXT;
   `);
   console.log('✅ Database ready.');
 }

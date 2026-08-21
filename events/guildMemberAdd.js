@@ -1,4 +1,4 @@
-const { EmbedBuilder, AttachmentBuilder } = require('discord.js');
+const { AttachmentBuilder } = require('discord.js');
 const { pool } = require('../database');
 const { buildWelcomeCard } = require('../utils/welcomeCard');
 const { checkJoin } = require('../utils/antiraid');
@@ -19,8 +19,7 @@ module.exports = async (member) => {
     .replace('{server}', member.guild.name);
 
   const buffer = await buildWelcomeCard(member);
-  const attachment = new AttachmentBuilder(buffer, { name: 'welcome.png' });
-  const embed = new EmbedBuilder().setColor('Green').setDescription(text).setImage('attachment://welcome.png');
+  const attachment = new AttachmentBuilder(buffer, { name: 'welcome.gif' });
 
-  await channel.send({ embeds: [embed], files: [attachment] }).catch(() => {});
+  await channel.send({ content: text, files: [attachment] }).catch(() => {});
 };

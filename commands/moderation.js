@@ -131,8 +131,15 @@ module.exports = [
         `SELECT * FROM cases WHERE guild_id=$1 AND user_id=$2 AND action='Warn' AND active=TRUE ORDER BY timestamp DESC`,
         [interaction.guild.id, user.id]);
       if (!rows.length) return interaction.reply({ content: `${user.tag} has no active warnings.`, ephemeral: true });
-      const desc = rows.map(r => `**#${r.id}.** ${r.reason} — <t:${Math.floor(Number(r.timestamp) / 1000)}:R>`).join('\n');
-      await interaction.reply({ embeds: [new EmbedBuilder().setColor('Yellow').setTitle(`Warnings for ${user.tag}`).setDescription(desc)] });
+
+      const desc = rows.map(r => `**#${r.id}** · ${r.reason}\n<t:${Math.floor(Number(r.timestamp) / 1000)}:R> · by <@${r.moderator_id}>`).join('\n\n');
+      const embed = new EmbedBuilder()
+        .setColor('Yellow')
+        .setAuthor({ name: `Warnings — ${user.tag}`, iconURL: user.displayAvatarURL() })
+        .setDescription(desc)
+        .setFooter({ text: `${rows.length} active warning${rows.length === 1 ? '' : 's'}` })
+        .setTimestamp();
+      await interaction.reply({ embeds: [embed] });
     }
   },
   {
@@ -158,11 +165,21 @@ module.exports = [
       const user = interaction.options.getUser('user');
       const cases = await getCases(interaction.guild.id, user.id);
       if (!cases.length) return interaction.reply({ content: `No case history for ${user.tag}.`, ephemeral: true });
+
+      const actionIcons = { Kick: '👢', Ban: '🔨', Tempban: '⏳', Mute: '🔕', Unmute: '🔔', Warn: '⚠️', 'Automod Warn': '🤖', Purge: '🧹' };
       const desc = cases.map(c => {
+        const icon = Object.keys(actionIcons).find(k => c.action.startsWith(k));
         const status = c.action === 'Warn' && !c.active ? ' *(expired)*' : '';
-        return `**#${c.id} — ${c.action}**${status} · ${c.reason} · <t:${Math.floor(Number(c.timestamp) / 1000)}:R>`;
-      }).join('\n');
-      await interaction.reply({ embeds: [new EmbedBuilder().setColor('Blue').setTitle(`Case history — ${user.tag}`).setDescription(desc)] });
+        return `${icon ? actionIcons[icon] : '📋'} **#${c.id} — ${c.action}**${status}\n${c.reason} · <t:${Math.floor(Number(c.timestamp) / 1000)}:R>`;
+      }).join('\n\n');
+
+      const embed = new EmbedBuilder()
+        .setColor('Red')
+        .setAuthor({ name: `Case history — ${user.tag}`, iconURL: user.displayAvatarURL() })
+        .setDescription(desc)
+        .setFooter({ text: `${cases.length} case${cases.length === 1 ? '' : 's'} shown` })
+        .setTimestamp();
+      await interaction.reply({ embeds: [embed] });
     }
   },
   {

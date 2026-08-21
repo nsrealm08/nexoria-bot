@@ -22,8 +22,21 @@ module.exports = [
     async execute(interaction) {
       const rows = await getLeaderboard(interaction.guild.id, 10);
       if (!rows.length) return interaction.reply('No data yet.');
-      const desc = rows.map((r, i) => `**${i + 1}.** <@${r.user_id}> — Level ${r.level} (${r.xp} XP)`).join('\n');
-      await interaction.reply({ embeds: [new EmbedBuilder().setColor('Blue').setTitle('🏆 Leaderboard').setDescription(desc)] });
+
+      const medals = ['🥇', '🥈', '🥉'];
+      const desc = rows.map((r, i) => {
+        const rank = medals[i] || `**#${i + 1}**`;
+        return `${rank}  <@${r.user_id}> — **Level ${r.level}** · ${r.xp} XP`;
+      }).join('\n');
+
+      const embed = new EmbedBuilder()
+        .setColor('Red')
+        .setTitle('🏆 Leaderboard')
+        .setThumbnail(interaction.guild.iconURL({ size: 128 }))
+        .setDescription(desc)
+        .setFooter({ text: `${interaction.guild.name} · Top ${rows.length}` })
+        .setTimestamp();
+      await interaction.reply({ embeds: [embed] });
     }
   },
   {

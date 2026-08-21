@@ -29,8 +29,21 @@ function buildDashboard(client) {
     next();
   }
 
-  async function verifyAccess(req, guildId) {
+  // Discord rate-limits GET /users/@me/guilds aggressively. verifyAccess()
+  // used to call it on every single request (settings load, stats load,
+  // every save) — clicking around the dashboard for a few seconds was
+  // enough to trigger a 429. Cache it in the session for 2 minutes instead.
+  async function getCachedGuilds(req) {
+    const cache = req.session.guildsCache;
+    const fresh = cache && Date.now() - cache.fetchedAt < 120000;
+    if (fresh) return cache.guilds;
     const guilds = await fetchManageableGuilds(req.session.accessToken);
+    req.session.guildsCache = { guilds, fetchedAt: Date.now() };
+    return guilds;
+  }
+
+  async function verifyAccess(req, guildId) {
+    const guilds = await getCachedGuilds(req);
     const match = guilds.find(g => g.id === guildId);
     const botGuild = client.guilds.cache.get(guildId);
     return match && botGuild ? botGuild : null;
@@ -57,7 +70,7 @@ function buildDashboard(client) {
 
   router.get('/dashboard', requireAuth, wrap(async (req, res) => {
     const user = await fetchUser(req.session.accessToken);
-    const guilds = await fetchManageableGuilds(req.session.accessToken);
+    const guilds = await getCachedGuilds(req);
     const botGuildIds = new Set(client.guilds.cache.map(g => g.id));
     res.send(guildListPage(user, guilds, botGuildIds));
   }));

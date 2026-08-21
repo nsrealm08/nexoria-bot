@@ -17,6 +17,7 @@ async function addXp(guildId, userId) {
   }
   if (now - Number(row.last_msg) < 60000) return null;
 
+  const oldLevel = row.level;
   const gained = Math.floor(Math.random() * 10) + 15;
   let xp = row.xp + gained;
   let level = row.level;
@@ -31,7 +32,7 @@ async function addXp(guildId, userId) {
   await pool.query('UPDATE levels SET xp=$1, level=$2, last_msg=$3 WHERE guild_id=$4 AND user_id=$5',
     [xp, level, now, guildId, userId]);
 
-  return leveledUp ? level : null;
+  return leveledUp ? { oldLevel, newLevel: level, xp } : null;
 }
 
 async function getRank(guildId, userId) {
