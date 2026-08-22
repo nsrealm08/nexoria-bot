@@ -4,9 +4,21 @@ const { addXp, isNoXp, getLevelRewards } = require('../utils/leveling');
 const { checkMessage } = require('../utils/automod');
 const { getLang, t } = require('../utils/i18n');
 const { buildLevelUpCard } = require('../utils/levelUpCard');
+const prefixCommands = require('./prefixCommands');
 
 module.exports = async (message) => {
   if (message.author.bot || !message.guild) return;
+
+  const { rows: settingsRows } = await pool.query('SELECT * FROM settings WHERE guild_id=$1', [message.guild.id]);
+  const settings = settingsRows[0];
+
+  if (settings?.command_prefix && message.content.startsWith(settings.command_prefix)) {
+    const handled = await prefixCommands.handle(message, settings.command_prefix).catch(err => {
+      console.error('Prefix command error:', err);
+      return false;
+    });
+    if (handled) return;
+  }
 
   const today = new Date().toISOString().slice(0, 10);
   await pool.query(
@@ -15,7 +27,7 @@ module.exports = async (message) => {
     [message.guild.id, today, message.guild.memberCount]).catch(() => {});
 
   await checkMessage(message).catch(err => console.error('Automod error:', err));
-  if (message.deleted) return; // automod removed it, skip XP
+  if (message.deleted) return;
 
   if (await isNoXp(message.guild.id, message.channel.id)) return;
 
@@ -23,8 +35,6 @@ module.exports = async (message) => {
   if (!result) return;
   const { oldLevel, newLevel, xp } = result;
 
-  const { rows } = await pool.query('SELECT * FROM settings WHERE guild_id=$1', [message.guild.id]);
-  const settings = rows[0];
   const channel = settings?.level_channel ? message.guild.channels.cache.get(settings.level_channel) : message.channel;
   if (channel) {
     try {

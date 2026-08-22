@@ -7,7 +7,8 @@ Animated welcome & level-up cards · moderation (kick/ban/timeout/mute/warn/temp
 2. **Bot** tab → enable **Server Members Intent**, **Message Content Intent**, **Presence Intent**.
 3. Copy the **Bot Token** and **Application (Client) ID**.
 4. **OAuth2** tab → copy the **Client Secret** (needed for the web dashboard login).
-5. **OAuth2 → URL Generator** → scopes `bot` + `applications.commands` → permissions: Manage Roles, Kick, Ban, Moderate Members, Manage Messages, Manage Channels, Create Private Threads, Manage Threads → open the generated URL to invite it.
+5. **OAuth2 → URL Generator** → scopes `bot` + `applications.commands` → permissions: Manage Roles, Kick, Ban, Moderate Members, Manage Messages, Manage Channels, Create Private Threads, Manage Threads, Manage Guild → open the generated URL to invite it.
+   - *Manage Guild* is what lets `/invites` and `/whoinvited` work — without it, invite tracking silently stays off rather than erroring.
 
 ## 2. Database (Postgres)
 Render's own free Postgres **expires after 30 days and gets deleted** — use **Neon** instead (permanent free tier):
@@ -55,11 +56,14 @@ Visit your `BASE_URL` → **Log in with Discord** → pick a server you manage �
 **Suggestions**: `/setsuggestionschannel` · `/suggest` (staff Approve/Deny via buttons, community votes via 👍/👎)
 **Giveaways**: `/giveaway start` (prize, duration, winner count) · `/giveaway reroll`
 **Scheduled announcements**: `/schedule create` (one-time, daily, or weekly) · `/schedule list` · `/schedule cancel`
-**Roles**: `/addrole /removerole`
+**Roles**: `/addrole /removerole /setautorole`
 **Reaction roles**: `/reactionrole` (single) · `/reactionrole-panel` (full embed + up to 5 pairs) — both support `group`+`exclusive`, or use the dashboard
 **Role menus**: `/rolemenu` — dropdown self-service roles, up to 5 options, or use the dashboard
+**Polls**: `/poll create` (button voting with live results, or reaction voting) · `/poll close`
+**Invites**: `/invites [user]` — how many members someone's invited · `/whoinvited [user]` — who invited them
 **Info**: `/serverinfo` `/userinfo` `/avatar`
 **Language**: `/language` — sets replies for ping, mod actions, welcome, and level-up to en/es/fr/de (a foundation, not every command yet)
+**Prefix**: `/setprefix` — optional text-command shortcut for a small read-only set (ping, avatar, userinfo, serverinfo, rank, leaderboard, help). Moderation stays slash-only for permission safety.
 **Misc**: `/ping`
 
 ## AI-assisted moderation

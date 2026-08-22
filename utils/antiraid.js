@@ -8,7 +8,7 @@ async function getSettings(guildId) {
   return rows[0];
 }
 
-async function lockdown(guild) {
+async function lockdown(guild, inviteNote = '') {
   const everyone = guild.roles.everyone;
   let succeeded = 0, failed = 0;
   for (const channel of guild.channels.cache.values()) {
@@ -25,11 +25,11 @@ async function lockdown(guild) {
   const partial = failed > 0 ? ` (${succeeded} channel${succeeded === 1 ? '' : 's'} locked, ${failed} failed — Nexoria may be missing Manage Channels in those channels)` : '';
   await recordCase(guild, {
     action: 'Anti-raid Lockdown', target: guild.name, moderator: 'Nexoria Anti-raid',
-    reason: `Unusual join rate detected — server locked${partial}. Use /unlock to lift.`, color: 'DarkRed'
+    reason: `Unusual join rate detected${inviteNote} — server locked${partial}. Use /unlock to lift.`, color: 'DarkRed'
   });
 }
 
-async function checkJoin(member) {
+async function checkJoin(member, usedInvite) {
   const settings = await getSettings(member.guild.id);
   if (!settings?.enabled || settings.locked) return;
 
@@ -42,14 +42,16 @@ async function checkJoin(member) {
 
   if (timestamps.length < settings.join_threshold) return;
 
+  const inviteNote = usedInvite ? ` (joined via invite \`${usedInvite.code}\`${usedInvite.inviterId ? ` from <@${usedInvite.inviterId}>` : ''})` : '';
+
   if (settings.action === 'kick') {
     await member.kick('Anti-raid: mass join detected').catch(() => {});
     await recordCase(member.guild, {
       action: 'Anti-raid Kick', target: member.user, moderator: 'Nexoria Anti-raid',
-      reason: 'Joined during a detected mass-join spike', color: 'DarkRed'
+      reason: `Joined during a detected mass-join spike${inviteNote}`, color: 'DarkRed'
     });
   } else {
-    await lockdown(member.guild);
+    await lockdown(member.guild, inviteNote);
   }
 }
 

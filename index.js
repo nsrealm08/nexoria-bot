@@ -18,9 +18,14 @@ const schedule = require('./commands/schedule');
 const language = require('./commands/language');
 const tickets = require('./commands/tickets');
 const info = require('./commands/info');
+const poll = require('./commands/poll');
+const autorole = require('./commands/autorole');
+const invites = require('./commands/invites');
+const prefixSetting = require('./commands/prefixSetting');
 const { startScheduler } = require('./utils/scheduler');
 const { getLang, t } = require('./utils/i18n');
 const { describePermissionError } = require('./utils/permissionCheck');
+const { cacheAllGuilds, cacheGuildInvites } = require('./utils/inviteTracker');
 
 const guildMemberAdd = require('./events/guildMemberAdd');
 const messageCreate = require('./events/messageCreate');
@@ -28,6 +33,8 @@ const reactionRoles = require('./events/reactionRoles');
 const roleMenu = require('./events/roleMenu');
 const suggestionReview = require('./events/suggestionReview');
 const ticketHandler = require('./events/ticketHandler');
+const pollVote = require('./events/pollVote');
+const prefixCommands = require('./events/prefixCommands');
 
 const client = new Client({
   intents: [
@@ -35,13 +42,14 @@ const client = new Client({
     GatewayIntentBits.GuildMembers,
     GatewayIntentBits.GuildMessages,
     GatewayIntentBits.MessageContent,
-    GatewayIntentBits.GuildMessageReactions
+    GatewayIntentBits.GuildMessageReactions,
+    GatewayIntentBits.GuildInvites
   ],
   partials: [Partials.Message, Partials.Channel, Partials.Reaction, Partials.User, Partials.GuildMember]
 });
 
 client.commands = new Collection();
-for (const cmd of [...moderation, ...leveling, ...config, ...automod, ...misc, ...antiraid, ...suggestions, ...giveaway, ...schedule, ...language, ...tickets, ...info]) {
+for (const cmd of [...moderation, ...leveling, ...config, ...automod, ...misc, ...antiraid, ...suggestions, ...giveaway, ...schedule, ...language, ...tickets, ...info, ...poll, ...autorole, ...invites, ...prefixSetting]) {
   client.commands.set(cmd.data.name, cmd);
 }
 
@@ -67,7 +75,12 @@ client.once('ready', async () => {
   } catch (err) {
     console.warn('⚠️ Could not update bot name/avatar (rate-limited or already set):', err.message);
   }
+  await cacheAllGuilds(client);
 });
+
+client.on('inviteCreate', (invite) => cacheGuildInvites(invite.guild).catch(() => {}));
+client.on('inviteDelete', (invite) => cacheGuildInvites(invite.guild).catch(() => {}));
+client.on('guildCreate', (guild) => cacheGuildInvites(guild).catch(() => {}));
 
 // Graceful reconnect handling — discord.js retries the gateway connection
 // automatically; these just make sure drops are visible instead of silent.
@@ -105,7 +118,9 @@ client.on('interactionCreate', async (interaction) => {
     } else if (interaction.isButton()) {
       if (interaction.customId.startsWith('nexoria-open-ticket') || interaction.customId.startsWith('nexoria-close-ticket')) {
         await ticketHandler(interaction);
-      } else {
+      } else if (interaction.customId.startsWith('nexoria-poll-vote-')) {
+        await pollVote(interaction);
+      } else if (interaction.customId.startsWith('suggestion-')) {
         await suggestionReview(interaction);
       }
     }

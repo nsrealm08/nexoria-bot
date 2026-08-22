@@ -12,8 +12,12 @@ const schedule = require('./commands/schedule');
 const language = require('./commands/language');
 const tickets = require('./commands/tickets');
 const info = require('./commands/info');
+const poll = require('./commands/poll');
+const autorole = require('./commands/autorole');
+const invites = require('./commands/invites');
+const prefixSetting = require('./commands/prefixSetting');
 
-const commands = [...moderation, ...leveling, ...config, ...automod, ...misc, ...antiraid, ...suggestions, ...giveaway, ...schedule, ...language, ...tickets, ...info].map(c => c.data.toJSON());
+const commands = [...moderation, ...leveling, ...config, ...automod, ...misc, ...antiraid, ...suggestions, ...giveaway, ...schedule, ...language, ...tickets, ...info, ...poll, ...autorole, ...invites, ...prefixSetting].map(c => c.data.toJSON());
 const rest = new REST().setToken(process.env.DISCORD_TOKEN);
 
 (async () => {

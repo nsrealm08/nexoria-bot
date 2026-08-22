@@ -24,7 +24,7 @@ async function init() {
       guild_id TEXT PRIMARY KEY, welcome_channel TEXT, welcome_msg TEXT,
       level_channel TEXT, log_channel TEXT, mute_role TEXT, suggestions_channel TEXT,
       warn_expire_days INTEGER, language TEXT DEFAULT 'en',
-      ticket_channel TEXT, ticket_staff_role TEXT
+      ticket_channel TEXT, ticket_staff_role TEXT, autorole TEXT, command_prefix TEXT
     );
     CREATE TABLE IF NOT EXISTS reaction_roles (
       message_id TEXT, emoji TEXT, role_id TEXT, guild_id TEXT,
@@ -83,8 +83,22 @@ async function init() {
     ALTER TABLE settings ADD COLUMN IF NOT EXISTS language TEXT DEFAULT 'en';
     ALTER TABLE reaction_roles ADD COLUMN IF NOT EXISTS group_name TEXT;
     ALTER TABLE reaction_roles ADD COLUMN IF NOT EXISTS exclusive BOOLEAN DEFAULT FALSE;
+    CREATE TABLE IF NOT EXISTS polls (
+      id SERIAL PRIMARY KEY, guild_id TEXT, channel_id TEXT, message_id TEXT,
+      question TEXT, options TEXT[], mode TEXT DEFAULT 'button',
+      end_time BIGINT, ended BOOLEAN DEFAULT FALSE
+    );
+    CREATE TABLE IF NOT EXISTS poll_votes (
+      poll_id INTEGER, user_id TEXT, option_index INTEGER, PRIMARY KEY (poll_id, user_id)
+    );
+    CREATE TABLE IF NOT EXISTS invite_uses (
+      id SERIAL PRIMARY KEY, guild_id TEXT, inviter_id TEXT, invited_user_id TEXT,
+      invite_code TEXT, timestamp BIGINT
+    );
     ALTER TABLE settings ADD COLUMN IF NOT EXISTS ticket_channel TEXT;
     ALTER TABLE settings ADD COLUMN IF NOT EXISTS ticket_staff_role TEXT;
+    ALTER TABLE settings ADD COLUMN IF NOT EXISTS autorole TEXT;
+    ALTER TABLE settings ADD COLUMN IF NOT EXISTS command_prefix TEXT;
     ALTER TABLE automod_settings ADD COLUMN IF NOT EXISTS ai_moderation BOOLEAN DEFAULT FALSE;
     ALTER TABLE automod_settings ADD COLUMN IF NOT EXISTS ai_provider TEXT DEFAULT 'groq';
   `);

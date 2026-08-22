@@ -1,6 +1,7 @@
 const { pool } = require('../database');
 const { pickWinners } = require('./giveaway');
 const { pruneExpiredWarnings, processExpiredTempbans } = require('./cases');
+const { buildResultsEmbed } = require('./pollResults');
 
 async function processGiveaways(client) {
   const { rows } = await pool.query('SELECT * FROM giveaways WHERE ended=FALSE AND end_time <= $1', [Date.now()]);
@@ -35,6 +36,40 @@ async function processScheduledMessages(client) {
   }
 }
 
+async function processPolls(client) {
+  const { rows } = await pool.query(
+    `SELECT * FROM polls WHERE ended=FALSE AND end_time IS NOT NULL AND end_time <= $1`, [Date.now()]);
+  for (const poll of rows) {
+    await finalizePoll(client, poll);
+  }
+}
+
+async function finalizePoll(client, poll) {
+  const channel = client.channels.cache.get(poll.channel_id);
+  if (!channel) { await pool.query('UPDATE polls SET ended=TRUE WHERE id=$1', [poll.id]); return; }
+  const message = await channel.messages.fetch(poll.message_id).catch(() => null);
+  await pool.query('UPDATE polls SET ended=TRUE WHERE id=$1', [poll.id]);
+  if (!message) return;
+
+  let counts;
+  if (poll.mode === 'button') {
+    const { rows: voteRows } = await pool.query('SELECT option_index, COUNT(*) AS n FROM poll_votes WHERE poll_id=$1 GROUP BY option_index', [poll.id]);
+    counts = poll.options.map((_, i) => {
+      const row = voteRows.find(v => v.option_index === i);
+      return row ? Number(row.n) : 0;
+    });
+  } else {
+    const numberEmoji = ['1️⃣', '2️⃣', '3️⃣', '4️⃣', '5️⃣'];
+    counts = poll.options.map((_, i) => {
+      const reaction = message.reactions.cache.get(numberEmoji[i]);
+      return reaction ? Math.max(0, reaction.count - 1) : 0; // -1 for the bot's own reaction
+    });
+  }
+
+  const embed = buildResultsEmbed(poll.question, poll.options, counts, { ended: true, mode: poll.mode });
+  await message.edit({ embeds: [embed], components: [] }).catch(() => {});
+}
+
 async function snapshotDailyStats(client) {
   const today = new Date().toISOString().slice(0, 10);
   for (const guild of client.guilds.cache.values()) {
@@ -54,6 +89,7 @@ function startScheduler(client) {
       await processScheduledMessages(client);
       await processExpiredTempbans(client);
       await pruneExpiredWarnings();
+      await processPolls(client);
 
       const today = new Date().toISOString().slice(0, 10);
       if (today !== lastStatDay) {
@@ -65,7 +101,7 @@ function startScheduler(client) {
     }
   }, 30000);
 
-  console.log('⏱️  Scheduler started (giveaways, announcements, tempbans, stats — every 30s).');
+  console.log('⏱️  Scheduler started (giveaways, announcements, tempbans, polls, stats — every 30s).');
 }
 
-module.exports = { startScheduler };
+module.exports = { startScheduler, finalizePoll };
