@@ -50,31 +50,39 @@ Visit your `BASE_URL` → **Log in with Discord** → pick a server you manage �
 **Automod**: `/automod-setup` — banned words, invite blocking, mass-mention limit, spam limit, AI-assisted toxicity detection
 **Anti-raid**: `/antiraid-setup` — lock the server or auto-kick on a join spike · `/unlock`
 **Logging**: `/setlogchannel` — every case (mod action, automod hit, anti-raid trigger) logs with a case ID, viewable via `/modlogs`
+**DM notifications**: `/setdmnotify` — DM members on kick/ban/mute/warn/timeout (default on); ban/tempban/mute DMs include an **Appeal** button
+**Appeals**: `/setappealschannel` — where appeal submissions land for staff, with Unban/Unmute/Deny buttons
 **Leveling**: `/rank` (animated card) `/leaderboard /setlevelchannel /setlevelreward /levelrewards /noxp` — level-ups post an animated card automatically
 **Welcome**: `/setwelcome #channel "Welcome {user} to {server}!"` (animated image banner)
-**Tickets**: `/setticketchannel #channel @staffrole` — posts a panel; clicking "Open Ticket" creates a private thread with the opener + staff role added
+**Milestones**: `/setmilestones #channel interval:100` — auto-announce every Nth member
+**Birthdays**: `/setbirthday`, `/removebirthday` (per-user) · `/setbirthdaychannel` (staff) — daily auto-announcement
+**Tickets**: `/setticketchannel #channel @staffrole` — posts a panel; clicking "Open Ticket" creates a private thread. `/setticketlog` sets a dedicated transcript channel (defaults to mod-log); closing a ticket posts the full message transcript there.
 **Suggestions**: `/setsuggestionschannel` · `/suggest` (staff Approve/Deny via buttons, community votes via 👍/👎)
 **Giveaways**: `/giveaway start` (prize, duration, winner count) · `/giveaway reroll`
+**Polls**: `/poll create` (button voting with live results, or reaction voting) · `/poll close`
 **Scheduled announcements**: `/schedule create` (one-time, daily, or weekly) · `/schedule list` · `/schedule cancel`
 **Roles**: `/addrole /removerole /setautorole`
 **Reaction roles**: `/reactionrole` (single) · `/reactionrole-panel` (full embed + up to 5 pairs) — both support `group`+`exclusive`, or use the dashboard
 **Role menus**: `/rolemenu` — dropdown self-service roles, up to 5 options, or use the dashboard
-**Polls**: `/poll create` (button voting with live results, or reaction voting) · `/poll close`
 **Invites**: `/invites [user]` — how many members someone's invited · `/whoinvited [user]` — who invited them
 **Info**: `/serverinfo` `/userinfo` `/avatar`
 **Language**: `/language` — sets replies for ping, mod actions, welcome, and level-up to en/es/fr/de (a foundation, not every command yet)
 **Prefix**: `/setprefix` — optional text-command shortcut for a small read-only set (ping, avatar, userinfo, serverinfo, rank, leaderboard, help). Moderation stays slash-only for permission safety.
+**Bot status**: `/setstatus` — **bot owner only** (needs `OWNER_ID` set), since presence is global across every server Nexoria is in, not per-server
 **Misc**: `/ping`
 
 ## AI-assisted moderation
 Opt-in per server via `/automod-setup ai_moderation:true` or the dashboard. Requires the bot owner to set `GROQ_API_KEY` or `GEMINI_API_KEY` in Render's environment — no per-server keys are stored. This calls an external API for messages that don't already match a rule-based filter, so only enable it if that per-message API cost/latency is acceptable for your traffic. Neither key set → the toggle is silently ignored (message pipeline continues normally, nothing gets flagged).
+
+## Appeals flow
+When `dm_notifications` is on (default), a ban/tempban/mute DM includes an **Appeal** button — even though the user is banned from the server, Discord still lets the bot DM them directly. Clicking it opens a modal asking for their reasoning; submitting posts it to the appeals channel with **Unban**/**Unmute** and **Deny** buttons for staff (requires Manage Server). No appeals channel configured → the user gets a clear "not set up yet" message instead of a silent failure.
 
 ## Notes
 - **Case history**: every kick/ban/tempban/timeout/mute/warn/automod-hit/anti-raid action gets a case ID. `/modlogs @user` shows the full history; `/case id reason:"..."` edits a reason after the fact.
 - **Warning expiry**: `/setwarnexpiry days:30` auto-expires warnings (0 = never). Expired warnings drop out of `/warnings` but stay visible in `/modlogs`.
 - **Temp-bans**: `/tempban` auto-unbans on schedule — no manual follow-up needed.
 - **Rate limiting**: 2s cooldown per user between slash commands, to blunt spam/abuse.
-- **Scheduler**: a single 30s interval (in `utils/scheduler.js`) handles giveaway endings, scheduled messages, temp-ban expiry, warning expiry, and a daily stats snapshot.
+- **Scheduler**: a single 30s interval (in `utils/scheduler.js`) handles giveaway endings, scheduled messages, temp-ban expiry, warning expiry, poll endings, birthdays, and a daily stats snapshot.
 - **Missing permissions**: mod commands, tickets, and anti-raid now check the bot's own permissions up front and reply with exactly what's missing, instead of failing silently or with a generic error.
 
 ## Scaling later

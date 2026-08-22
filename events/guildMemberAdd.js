@@ -1,4 +1,4 @@
-const { AttachmentBuilder } = require('discord.js');
+const { AttachmentBuilder, EmbedBuilder } = require('discord.js');
 const { pool } = require('../database');
 const { buildWelcomeCard } = require('../utils/welcomeCard');
 const { checkJoin } = require('../utils/antiraid');
@@ -16,6 +16,14 @@ module.exports = async (member) => {
     await member.roles.add(settings.autorole).catch(err => {
       console.error(`Autorole failed in ${member.guild.name} (check role hierarchy/permissions):`, err.message);
     });
+  }
+
+  if (settings?.milestone_channel && settings.milestone_interval > 0 && member.guild.memberCount % settings.milestone_interval === 0) {
+    const milestoneChannel = member.guild.channels.cache.get(settings.milestone_channel);
+    if (milestoneChannel) {
+      await milestoneChannel.send({ embeds: [new EmbedBuilder().setColor('Red')
+        .setDescription(`🎉 **${member.guild.name}** just hit **${member.guild.memberCount} members**! Thanks for being part of it.`)] }).catch(() => {});
+    }
   }
 
   if (!settings?.welcome_channel) return;

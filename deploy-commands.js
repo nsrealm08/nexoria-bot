@@ -16,8 +16,17 @@ const poll = require('./commands/poll');
 const autorole = require('./commands/autorole');
 const invites = require('./commands/invites');
 const prefixSetting = require('./commands/prefixSetting');
+const dmNotifySetting = require('./commands/dmNotifySetting');
+const appealsSetting = require('./commands/appealsSetting');
+const milestones = require('./commands/milestones');
+const birthday = require('./commands/birthday');
+const botStatusSetting = require('./commands/botStatusSetting');
 
-const commands = [...moderation, ...leveling, ...config, ...automod, ...misc, ...antiraid, ...suggestions, ...giveaway, ...schedule, ...language, ...tickets, ...info, ...poll, ...autorole, ...invites, ...prefixSetting].map(c => c.data.toJSON());
+const commands = [
+  ...moderation, ...leveling, ...config, ...automod, ...misc, ...antiraid, ...suggestions,
+  ...giveaway, ...schedule, ...language, ...tickets, ...info, ...poll, ...autorole, ...invites,
+  ...prefixSetting, ...dmNotifySetting, ...appealsSetting, ...milestones, ...birthday, ...botStatusSetting
+].map(c => c.data.toJSON());
 const rest = new REST().setToken(process.env.DISCORD_TOKEN);
 
 (async () => {

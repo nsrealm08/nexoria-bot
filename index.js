@@ -22,6 +22,12 @@ const poll = require('./commands/poll');
 const autorole = require('./commands/autorole');
 const invites = require('./commands/invites');
 const prefixSetting = require('./commands/prefixSetting');
+const dmNotifySetting = require('./commands/dmNotifySetting');
+const appealsSetting = require('./commands/appealsSetting');
+const milestones = require('./commands/milestones');
+const birthday = require('./commands/birthday');
+const botStatusSetting = require('./commands/botStatusSetting');
+const { loadAndApplyStatus } = require('./utils/botStatus');
 const { startScheduler } = require('./utils/scheduler');
 const { getLang, t } = require('./utils/i18n');
 const { describePermissionError } = require('./utils/permissionCheck');
@@ -35,6 +41,7 @@ const suggestionReview = require('./events/suggestionReview');
 const ticketHandler = require('./events/ticketHandler');
 const pollVote = require('./events/pollVote');
 const prefixCommands = require('./events/prefixCommands');
+const appealHandler = require('./events/appealHandler');
 
 const client = new Client({
   intents: [
@@ -49,7 +56,7 @@ const client = new Client({
 });
 
 client.commands = new Collection();
-for (const cmd of [...moderation, ...leveling, ...config, ...automod, ...misc, ...antiraid, ...suggestions, ...giveaway, ...schedule, ...language, ...tickets, ...info, ...poll, ...autorole, ...invites, ...prefixSetting]) {
+for (const cmd of [...moderation, ...leveling, ...config, ...automod, ...misc, ...antiraid, ...suggestions, ...giveaway, ...schedule, ...language, ...tickets, ...info, ...poll, ...autorole, ...invites, ...prefixSetting, ...dmNotifySetting, ...appealsSetting, ...milestones, ...birthday, ...botStatusSetting]) {
   client.commands.set(cmd.data.name, cmd);
 }
 
@@ -76,6 +83,7 @@ client.once('ready', async () => {
     console.warn('⚠️ Could not update bot name/avatar (rate-limited or already set):', err.message);
   }
   await cacheAllGuilds(client);
+  await loadAndApplyStatus(client).catch(err => console.error('Could not apply saved status:', err.message));
 });
 
 client.on('inviteCreate', (invite) => cacheGuildInvites(invite.guild).catch(() => {}));
@@ -122,6 +130,14 @@ client.on('interactionCreate', async (interaction) => {
         await pollVote(interaction);
       } else if (interaction.customId.startsWith('suggestion-')) {
         await suggestionReview(interaction);
+      } else if (interaction.customId.startsWith('nexoria-appeal-open-')) {
+        await appealHandler.openModal(interaction);
+      } else if (interaction.customId.startsWith('nexoria-appeal-unban-') || interaction.customId.startsWith('nexoria-appeal-unmute-') || interaction.customId.startsWith('nexoria-appeal-deny-')) {
+        await appealHandler.handleStaffAction(interaction);
+      }
+    } else if (interaction.isModalSubmit()) {
+      if (interaction.customId.startsWith('nexoria-appeal-modal-')) {
+        await appealHandler.submitModal(interaction, client);
       }
     }
   } catch (err) {

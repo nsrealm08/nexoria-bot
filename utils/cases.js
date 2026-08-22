@@ -1,5 +1,9 @@
-const { EmbedBuilder } = require('discord.js');
+const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
 const { pool } = require('../database');
+const { safeDM } = require('./dmNotify');
+
+const DM_ACTIONS = ['Kick', 'Ban', 'Tempban', 'Mute', 'Warn', 'Timeout'];
+const APPEALABLE_ACTIONS = ['Ban', 'Tempban', 'Mute'];
 
 async function recordCase(guild, { action, target, moderator, reason, expiresAt = null, color = 'Red' }) {
   const targetId = target?.id || null;
@@ -10,8 +14,10 @@ async function recordCase(guild, { action, target, moderator, reason, expiresAt 
     [guild.id, targetId, modId, action, reason || 'No reason provided', Date.now(), expiresAt]);
   const caseId = rows[0].id;
 
-  const { rows: s } = await pool.query('SELECT log_channel FROM settings WHERE guild_id=$1', [guild.id]);
-  const channel = s[0]?.log_channel ? guild.channels.cache.get(s[0].log_channel) : null;
+  const { rows: s } = await pool.query('SELECT log_channel, dm_notifications FROM settings WHERE guild_id=$1', [guild.id]);
+  const settings = s[0];
+
+  const channel = settings?.log_channel ? guild.channels.cache.get(settings.log_channel) : null;
   if (channel) {
     const embed = new EmbedBuilder()
       .setColor(color)
@@ -24,6 +30,29 @@ async function recordCase(guild, { action, target, moderator, reason, expiresAt 
       .setTimestamp();
     await channel.send({ embeds: [embed] }).catch(() => {});
   }
+
+  const isRealUser = typeof target?.send === 'function';
+  const dmActionType = DM_ACTIONS.find(a => action.startsWith(a));
+  if (isRealUser && dmActionType && (settings?.dm_notifications ?? true)) {
+    const dmEmbed = new EmbedBuilder()
+      .setColor(color)
+      .setTitle(`You received a moderation action in ${guild.name}`)
+      .addFields(
+        { name: 'Action', value: action, inline: true },
+        { name: 'Reason', value: reason || 'No reason provided' }
+      )
+      .setTimestamp();
+
+    const payload = { embeds: [dmEmbed] };
+    if (APPEALABLE_ACTIONS.includes(dmActionType)) {
+      dmEmbed.setFooter({ text: 'You can appeal this below.' });
+      payload.components = [new ActionRowBuilder().addComponents(
+        new ButtonBuilder().setCustomId(`nexoria-appeal-open-${guild.id}-${dmActionType}`).setLabel('Appeal').setStyle(ButtonStyle.Secondary)
+      )];
+    }
+    await safeDM(target, payload);
+  }
+
   return caseId;
 }
 

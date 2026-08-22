@@ -28,5 +28,19 @@ module.exports = [
       await channel.send({ embeds: [embed], components: [row] });
       await interaction.reply({ content: `✅ Ticket panel posted in ${channel}.`, ephemeral: true });
     }
+  },
+  {
+    data: new SlashCommandBuilder()
+      .setName('setticketlog').setDescription('Set a dedicated channel for ticket transcripts (defaults to the mod-log channel)')
+      .addChannelOption(o => o.setName('channel').setDescription('Channel').setRequired(true))
+      .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild),
+    async execute(interaction) {
+      const channel = interaction.options.getChannel('channel');
+      await pool.query(
+        `INSERT INTO settings (guild_id, transcript_channel) VALUES ($1,$2)
+         ON CONFLICT (guild_id) DO UPDATE SET transcript_channel=excluded.transcript_channel`,
+        [interaction.guild.id, channel.id]);
+      await interaction.reply({ content: `✅ Ticket transcripts will post in ${channel}.`, ephemeral: true });
+    }
   }
 ];

@@ -24,7 +24,10 @@ async function init() {
       guild_id TEXT PRIMARY KEY, welcome_channel TEXT, welcome_msg TEXT,
       level_channel TEXT, log_channel TEXT, mute_role TEXT, suggestions_channel TEXT,
       warn_expire_days INTEGER, language TEXT DEFAULT 'en',
-      ticket_channel TEXT, ticket_staff_role TEXT, autorole TEXT, command_prefix TEXT
+      ticket_channel TEXT, ticket_staff_role TEXT, autorole TEXT, command_prefix TEXT,
+      dm_notifications BOOLEAN DEFAULT TRUE, appeals_channel TEXT,
+      milestone_channel TEXT, milestone_interval INTEGER,
+      birthday_channel TEXT, transcript_channel TEXT
     );
     CREATE TABLE IF NOT EXISTS reaction_roles (
       message_id TEXT, emoji TEXT, role_id TEXT, guild_id TEXT,
@@ -95,10 +98,22 @@ async function init() {
       id SERIAL PRIMARY KEY, guild_id TEXT, inviter_id TEXT, invited_user_id TEXT,
       invite_code TEXT, timestamp BIGINT
     );
+    CREATE TABLE IF NOT EXISTS birthdays (
+      guild_id TEXT, user_id TEXT, month INTEGER, day INTEGER, PRIMARY KEY (guild_id, user_id)
+    );
+    CREATE TABLE IF NOT EXISTS bot_config (
+      key TEXT PRIMARY KEY, value TEXT
+    );
     ALTER TABLE settings ADD COLUMN IF NOT EXISTS ticket_channel TEXT;
     ALTER TABLE settings ADD COLUMN IF NOT EXISTS ticket_staff_role TEXT;
     ALTER TABLE settings ADD COLUMN IF NOT EXISTS autorole TEXT;
     ALTER TABLE settings ADD COLUMN IF NOT EXISTS command_prefix TEXT;
+    ALTER TABLE settings ADD COLUMN IF NOT EXISTS dm_notifications BOOLEAN DEFAULT TRUE;
+    ALTER TABLE settings ADD COLUMN IF NOT EXISTS appeals_channel TEXT;
+    ALTER TABLE settings ADD COLUMN IF NOT EXISTS milestone_channel TEXT;
+    ALTER TABLE settings ADD COLUMN IF NOT EXISTS milestone_interval INTEGER;
+    ALTER TABLE settings ADD COLUMN IF NOT EXISTS birthday_channel TEXT;
+    ALTER TABLE settings ADD COLUMN IF NOT EXISTS transcript_channel TEXT;
     ALTER TABLE automod_settings ADD COLUMN IF NOT EXISTS ai_moderation BOOLEAN DEFAULT FALSE;
     ALTER TABLE automod_settings ADD COLUMN IF NOT EXISTS ai_provider TEXT DEFAULT 'groq';
   `);

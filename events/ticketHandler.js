@@ -1,5 +1,6 @@
-const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ChannelType, PermissionFlagsBits } = require('discord.js');
+const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ChannelType, PermissionFlagsBits, AttachmentBuilder } = require('discord.js');
 const { pool } = require('../database');
+const { buildTranscript } = require('../utils/ticketTranscript');
 
 async function openTicket(interaction) {
   const { rows } = await pool.query('SELECT ticket_channel, ticket_staff_role FROM settings WHERE guild_id=$1', [interaction.guild.id]);
@@ -67,6 +68,22 @@ async function closeTicket(interaction) {
   }
 
   await interaction.reply({ content: '🔒 Closing ticket in 5 seconds...' });
+
+  const { rows } = await pool.query('SELECT transcript_channel, log_channel FROM settings WHERE guild_id=$1', [interaction.guild.id]);
+  const transcriptChannelId = rows[0]?.transcript_channel || rows[0]?.log_channel;
+  const transcriptChannel = transcriptChannelId ? interaction.guild.channels.cache.get(transcriptChannelId) : null;
+
+  if (transcriptChannel) {
+    const buffer = await buildTranscript(thread);
+    if (buffer) {
+      const attachment = new AttachmentBuilder(buffer, { name: `${thread.name}.txt` });
+      await transcriptChannel.send({
+        embeds: [new EmbedBuilder().setColor('Grey').setDescription(`📄 Transcript for **${thread.name}** — closed by ${interaction.user.tag}`)],
+        files: [attachment]
+      }).catch(() => {});
+    }
+  }
+
   setTimeout(async () => {
     await thread.setArchived(true).catch(() => {});
     await thread.setLocked(true).catch(() => {});

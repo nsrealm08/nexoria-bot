@@ -80,6 +80,21 @@ async function snapshotDailyStats(client) {
   }
 }
 
+async function checkBirthdays(client) {
+  const now = new Date();
+  const month = now.getMonth() + 1, day = now.getDate();
+  const { rows } = await pool.query('SELECT * FROM birthdays WHERE month=$1 AND day=$2', [month, day]);
+
+  for (const b of rows) {
+    const guild = client.guilds.cache.get(b.guild_id);
+    if (!guild) continue;
+    const { rows: s } = await pool.query('SELECT birthday_channel FROM settings WHERE guild_id=$1', [b.guild_id]);
+    const channel = s[0]?.birthday_channel ? guild.channels.cache.get(s[0].birthday_channel) : null;
+    if (!channel) continue;
+    await channel.send(`🎂 Happy birthday, <@${b.user_id}>! Hope it's a great one.`).catch(() => {});
+  }
+}
+
 function startScheduler(client) {
   let lastStatDay = null;
 
@@ -95,13 +110,14 @@ function startScheduler(client) {
       if (today !== lastStatDay) {
         lastStatDay = today;
         await snapshotDailyStats(client);
+        await checkBirthdays(client);
       }
     } catch (err) {
       console.error('Scheduler tick error:', err);
     }
   }, 30000);
 
-  console.log('⏱️  Scheduler started (giveaways, announcements, tempbans, polls, stats — every 30s).');
+  console.log('⏱️  Scheduler started (giveaways, announcements, tempbans, polls, birthdays, stats — every 30s).');
 }
 
 module.exports = { startScheduler, finalizePoll };
