@@ -5,6 +5,7 @@ const crypto = require('crypto');
 const { EmbedBuilder, ActionRowBuilder, StringSelectMenuBuilder, PermissionFlagsBits } = require('discord.js');
 const { pool } = require('../database');
 const { getAuthUrl, exchangeCode, fetchUser, fetchManageableGuilds } = require('./oauth');
+const { getLockUntil, setLock, formatWait } = require('./oauthLock');
 const { loginPage, guildListPage, settingsPage, statsPage, errorPage } = require('./views');
 
 // Defends Discord's OAuth token-endpoint quota from being burned by bots/
@@ -70,29 +71,37 @@ function buildDashboard(client) {
     res.send(loginPage());
   });
 
-  router.get('/login', (req, res) => {
+  router.get('/login', wrap(async (req, res) => {
+    const lockedUntil = await getLockUntil();
+    if (lockedUntil) {
+      const w = formatWait(lockedUntil);
+      return res.status(429).send(errorPage('Still rate-limited',
+        `Discord's OAuth login is still cooling down from an earlier rate limit — try again after ~${w.clockTime} UTC (about ${w.minutes}m ${w.remSeconds}s). This persists across redeploys, so retrying now would only extend it.`));
+    }
     if (tooManyOauthAttempts(req.ip)) {
       return res.status(429).send(errorPage('Slow down', 'Too many login attempts from this connection recently — wait a few minutes and try again.'));
     }
     const state = crypto.randomBytes(16).toString('hex');
     req.session.oauthState = state;
     res.redirect(getAuthUrl(state));
-  });
+  }));
 
-  router.get('/callback', async (req, res) => {
+  router.get('/callback', wrap(async (req, res) => {
     const { code, state } = req.query;
     if (!code) return res.redirect('/');
 
-    // Reject before ever touching Discord's token endpoint if the state
-    // doesn't match what /login issued — this is what actually protects
-    // the token-exchange quota from bots/scanners hitting this public URL
-    // with an arbitrary ?code=, since they can't know a valid state.
     const expectedState = req.session.oauthState;
     req.session.oauthState = null; // single-use
     if (!state || !expectedState || state !== expectedState) {
       return res.redirect(`/login-error?message=${encodeURIComponent('This login link is invalid or expired. Start over from the login page.')}`);
     }
 
+    const lockedUntil = await getLockUntil();
+    if (lockedUntil) {
+      const w = formatWait(lockedUntil);
+      return res.status(429).send(errorPage('Still rate-limited',
+        `Discord's OAuth login is still cooling down — try again after ~${w.clockTime} UTC (about ${w.minutes}m ${w.remSeconds}s).`));
+    }
     if (tooManyOauthAttempts(req.ip)) {
       return res.status(429).send(errorPage('Slow down', 'Too many login attempts from this connection recently — wait a few minutes and try again.'));
     }
@@ -103,12 +112,17 @@ function buildDashboard(client) {
       res.redirect('/dashboard');
     } catch (err) {
       console.error('OAuth callback error:', err);
+      // Persist to the DB (not just in-memory) so this survives a redeploy —
+      // that gap was exactly what let a request slip through Discord's
+      // still-active rate limit and extend it further.
+      const retryMatch = err.message.match(/wait (\d+) seconds/);
+      if (retryMatch) await setLock(retryMatch[1]).catch(() => {});
       // Redirect (don't render here) so the URL no longer carries the spent
       // ?code= — otherwise hitting refresh resends the same dead code and
       // immediately fails again, compounding Discord's rate limit.
       res.redirect(`/login-error?message=${encodeURIComponent(err.message || 'Login failed.')}`);
     }
-  });
+  }));
 
   router.get('/login-error', (req, res) => {
     res.status(400).send(errorPage(
