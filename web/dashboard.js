@@ -1,10 +1,25 @@
 const express = require('express');
 const session = require('express-session');
 const pgSession = require('connect-pg-simple')(session);
+const crypto = require('crypto');
 const { EmbedBuilder, ActionRowBuilder, StringSelectMenuBuilder, PermissionFlagsBits } = require('discord.js');
 const { pool } = require('../database');
 const { getAuthUrl, exchangeCode, fetchUser, fetchManageableGuilds } = require('./oauth');
 const { loginPage, guildListPage, settingsPage, statsPage, errorPage } = require('./views');
+
+// Defends Discord's OAuth token-endpoint quota from being burned by bots/
+// scanners probing the public /callback URL. Keyed per-IP, in-memory (fine
+// for a single Render instance). Not a general API rate limiter — just a
+// tripwire around the two routes that talk to Discord's OAuth endpoints.
+const oauthAttempts = new Map(); // ip -> timestamps[]
+function tooManyOauthAttempts(ip) {
+  const now = Date.now();
+  const windowMs = 5 * 60 * 1000;
+  const timestamps = (oauthAttempts.get(ip) || []).filter(t => now - t < windowMs);
+  timestamps.push(now);
+  oauthAttempts.set(ip, timestamps);
+  return timestamps.length > 8;
+}
 
 function buildDashboard(client) {
   const router = express.Router();
@@ -55,11 +70,33 @@ function buildDashboard(client) {
     res.send(loginPage());
   });
 
-  router.get('/login', (req, res) => res.redirect(getAuthUrl()));
+  router.get('/login', (req, res) => {
+    if (tooManyOauthAttempts(req.ip)) {
+      return res.status(429).send(errorPage('Slow down', 'Too many login attempts from this connection recently — wait a few minutes and try again.'));
+    }
+    const state = crypto.randomBytes(16).toString('hex');
+    req.session.oauthState = state;
+    res.redirect(getAuthUrl(state));
+  });
 
   router.get('/callback', async (req, res) => {
-    const { code } = req.query;
+    const { code, state } = req.query;
     if (!code) return res.redirect('/');
+
+    // Reject before ever touching Discord's token endpoint if the state
+    // doesn't match what /login issued — this is what actually protects
+    // the token-exchange quota from bots/scanners hitting this public URL
+    // with an arbitrary ?code=, since they can't know a valid state.
+    const expectedState = req.session.oauthState;
+    req.session.oauthState = null; // single-use
+    if (!state || !expectedState || state !== expectedState) {
+      return res.redirect(`/login-error?message=${encodeURIComponent('This login link is invalid or expired. Start over from the login page.')}`);
+    }
+
+    if (tooManyOauthAttempts(req.ip)) {
+      return res.status(429).send(errorPage('Slow down', 'Too many login attempts from this connection recently — wait a few minutes and try again.'));
+    }
+
     try {
       const token = await exchangeCode(code);
       req.session.accessToken = token.access_token;

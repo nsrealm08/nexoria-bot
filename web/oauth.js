@@ -8,12 +8,13 @@ if (!BASE) {
   console.error('❌ BASE_URL is not set — OAuth login will fail with "Not a well formed URL." Set it in Render\'s Environment tab to your service URL, e.g. https://nexoria-bot-x22a.onrender.com (no trailing slash).');
 }
 
-function getAuthUrl() {
+function getAuthUrl(state) {
   const params = new URLSearchParams({
     client_id: CLIENT_ID,
     redirect_uri: REDIRECT_URI,
     response_type: 'code',
-    scope: 'identify guilds'
+    scope: 'identify guilds',
+    state
   });
   return `https://discord.com/api/oauth2/authorize?${params}`;
 }
