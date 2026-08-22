@@ -197,8 +197,8 @@ const loginPage = () => layout('Login', `
   </div>
 `);
 
-const errorPage = (title, message) => layout('Error', `
-  <div class="top-row"><h1>${title}</h1><a class="back-link" href="/dashboard">← Dashboard</a></div>
+const errorPage = (title, message, link) => layout('Error', `
+  <div class="top-row"><h1>${title}</h1><a class="back-link" href="${link?.href || '/dashboard'}">${link?.text || '← Dashboard'}</a></div>
   <div class="card"><p style="color: var(--text-dim); margin: 0;">${message}</p></div>
 `, { showNav: true });
 

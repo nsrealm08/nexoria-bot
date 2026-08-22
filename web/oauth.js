@@ -32,6 +32,10 @@ async function exchangeCode(code) {
     body,
     signal: AbortSignal.timeout(10000)
   });
+  if (res.status === 429) {
+    const retryAfter = res.headers.get('retry-after');
+    throw new Error(`Discord is rate-limiting login attempts — wait ${retryAfter || 'a few'} seconds, then start over from the login page (don't refresh this page — the code it used is now spent).`);
+  }
   if (!res.ok) throw new Error(`Token exchange failed: ${res.status}`);
   return res.json();
 }

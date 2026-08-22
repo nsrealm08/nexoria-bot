@@ -57,13 +57,29 @@ function buildDashboard(client) {
 
   router.get('/login', (req, res) => res.redirect(getAuthUrl()));
 
-  router.get('/callback', wrap(async (req, res) => {
+  router.get('/callback', async (req, res) => {
     const { code } = req.query;
     if (!code) return res.redirect('/');
-    const token = await exchangeCode(code);
-    req.session.accessToken = token.access_token;
-    res.redirect('/dashboard');
-  }));
+    try {
+      const token = await exchangeCode(code);
+      req.session.accessToken = token.access_token;
+      res.redirect('/dashboard');
+    } catch (err) {
+      console.error('OAuth callback error:', err);
+      // Redirect (don't render here) so the URL no longer carries the spent
+      // ?code= — otherwise hitting refresh resends the same dead code and
+      // immediately fails again, compounding Discord's rate limit.
+      res.redirect(`/login-error?message=${encodeURIComponent(err.message || 'Login failed.')}`);
+    }
+  });
+
+  router.get('/login-error', (req, res) => {
+    res.status(400).send(errorPage(
+      'Login failed',
+      req.query.message || 'Something went wrong logging in.',
+      { href: '/login', text: '← Try logging in again' }
+    ));
+  });
 
   router.get('/logout', (req, res) => {
     req.session.destroy(() => res.redirect('/'));
