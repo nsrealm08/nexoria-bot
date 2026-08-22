@@ -3,6 +3,7 @@ const { pool } = require('../database');
 const { recordCase, getCases, editCaseReason } = require('../utils/cases');
 const { ensureMuteRole } = require('../utils/mute');
 const { getLang, t } = require('../utils/i18n');
+const { requireBotPermissions } = require('../utils/permissionCheck');
 
 module.exports = [
   {
@@ -12,6 +13,7 @@ module.exports = [
       .addStringOption(o => o.setName('reason').setDescription('Reason'))
       .setDefaultMemberPermissions(PermissionFlagsBits.KickMembers),
     async execute(interaction) {
+      if (!(await requireBotPermissions(interaction, [PermissionFlagsBits.KickMembers]))) return;
       const user = interaction.options.getUser('user');
       const reason = interaction.options.getString('reason') || 'No reason provided';
       const member = await interaction.guild.members.fetch(user.id);
@@ -28,6 +30,7 @@ module.exports = [
       .addStringOption(o => o.setName('reason').setDescription('Reason'))
       .setDefaultMemberPermissions(PermissionFlagsBits.BanMembers),
     async execute(interaction) {
+      if (!(await requireBotPermissions(interaction, [PermissionFlagsBits.BanMembers]))) return;
       const user = interaction.options.getUser('user');
       const reason = interaction.options.getString('reason') || 'No reason provided';
       await interaction.guild.members.ban(user.id, { reason });
@@ -44,6 +47,7 @@ module.exports = [
       .addStringOption(o => o.setName('reason').setDescription('Reason'))
       .setDefaultMemberPermissions(PermissionFlagsBits.BanMembers),
     async execute(interaction) {
+      if (!(await requireBotPermissions(interaction, [PermissionFlagsBits.BanMembers]))) return;
       const user = interaction.options.getUser('user');
       const hours = interaction.options.getInteger('hours');
       const reason = interaction.options.getString('reason') || 'No reason provided';
@@ -62,6 +66,7 @@ module.exports = [
       .addStringOption(o => o.setName('reason').setDescription('Reason'))
       .setDefaultMemberPermissions(PermissionFlagsBits.ModerateMembers),
     async execute(interaction) {
+      if (!(await requireBotPermissions(interaction, [PermissionFlagsBits.ModerateMembers]))) return;
       const user = interaction.options.getUser('user');
       const minutes = interaction.options.getInteger('minutes');
       const reason = interaction.options.getString('reason') || 'No reason provided';
@@ -78,6 +83,7 @@ module.exports = [
       .addStringOption(o => o.setName('reason').setDescription('Reason'))
       .setDefaultMemberPermissions(PermissionFlagsBits.ModerateMembers),
     async execute(interaction) {
+      if (!(await requireBotPermissions(interaction, [PermissionFlagsBits.ManageRoles]))) return;
       const user = interaction.options.getUser('user');
       const reason = interaction.options.getString('reason') || 'No reason provided';
       const role = await ensureMuteRole(interaction.guild);
@@ -94,6 +100,7 @@ module.exports = [
       .addUserOption(o => o.setName('user').setDescription('User').setRequired(true))
       .setDefaultMemberPermissions(PermissionFlagsBits.ModerateMembers),
     async execute(interaction) {
+      if (!(await requireBotPermissions(interaction, [PermissionFlagsBits.ManageRoles]))) return;
       const user = interaction.options.getUser('user');
       const role = await ensureMuteRole(interaction.guild);
       const member = await interaction.guild.members.fetch(user.id);
@@ -201,6 +208,7 @@ module.exports = [
       .addIntegerOption(o => o.setName('amount').setDescription('1-100').setRequired(true))
       .setDefaultMemberPermissions(PermissionFlagsBits.ManageMessages),
     async execute(interaction) {
+      if (!(await requireBotPermissions(interaction, [PermissionFlagsBits.ManageMessages]))) return;
       const amount = interaction.options.getInteger('amount');
       if (amount < 1 || amount > 100) return interaction.reply({ content: 'Amount must be 1-100.', ephemeral: true });
       const deleted = await interaction.channel.bulkDelete(amount, true);

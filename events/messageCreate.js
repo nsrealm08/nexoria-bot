@@ -29,7 +29,7 @@ module.exports = async (message) => {
   if (channel) {
     try {
       const buffer = await buildLevelUpCard(message.author, oldLevel, newLevel, xp);
-      const attachment = new AttachmentBuilder(buffer, { name: 'levelup.png' });
+      const attachment = new AttachmentBuilder(buffer, { name: 'levelup.gif' });
       const lang = await getLang(message.guild.id);
       await channel.send({
         content: t(lang, 'levelUp', { user: message.author.toString(), level: newLevel }),

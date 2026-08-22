@@ -1,6 +1,7 @@
 const express = require('express');
 const session = require('express-session');
 const pgSession = require('connect-pg-simple')(session);
+const { EmbedBuilder, ActionRowBuilder, StringSelectMenuBuilder, PermissionFlagsBits } = require('discord.js');
 const { pool } = require('../database');
 const { getAuthUrl, exchangeCode, fetchUser, fetchManageableGuilds } = require('./oauth');
 const { loginPage, guildListPage, settingsPage, statsPage, errorPage } = require('./views');
@@ -130,6 +131,129 @@ function buildDashboard(client) {
     res.redirect(`/dashboard/${guild.id}?saved=1`);
   }));
 
+  // Creates a brand-new reaction-role panel message (embed + reactions),
+  // same as /reactionrole-panel, but triggered from the dashboard form.
+  router.post('/dashboard/:guildId/reaction-roles/panel', requireAuth, wrap(async (req, res) => {
+    const guild = await verifyAccess(req, req.params.guildId);
+    if (!guild) return res.status(403).send(errorPage('No access', "You don't have Manage Server permission on that server."));
+
+    const b = req.body;
+    const channel = guild.channels.cache.get((b.channel_id || '').trim());
+    if (!channel) return res.status(400).send(errorPage('Channel not found', 'Double-check the channel ID and that Nexoria can see that channel.'));
+
+    const me = guild.members.me;
+    if (!channel.permissionsFor(me)?.has(PermissionFlagsBits.SendMessages)) {
+      return res.status(400).send(errorPage('Missing permission', 'Nexoria can\'t send messages in that channel — check its permissions there.'));
+    }
+
+    const pairs = [1, 2, 3]
+      .map(i => ({ emoji: (b[`emoji${i}`] || '').trim(), role: (b[`role${i}`] || '').trim() }))
+      .filter(p => p.emoji && p.role);
+    if (!pairs.length) return res.status(400).send(errorPage('Nothing to create', 'Provide at least one emoji + role ID pair.'));
+
+    const groupName = `panel-${Date.now()}`;
+    const exclusive = !!b.exclusive;
+    const lines = pairs.map(p => `${p.emoji} — <@&${p.role}>`).join('\n');
+    const embed = new EmbedBuilder().setColor('Red').setTitle(b.title || 'Choose a role').setDescription(`${b.description || ''}\n\n${lines}`);
+
+    let message;
+    try {
+      message = await channel.send({ embeds: [embed] });
+      for (const p of pairs) await message.react(p.emoji);
+    } catch (err) {
+      return res.status(400).send(errorPage('Couldn\'t post panel', err.message || 'Discord rejected the request — check the emoji format and role IDs.'));
+    }
+
+    for (const p of pairs) {
+      await pool.query(
+        `INSERT INTO reaction_roles (message_id, emoji, role_id, guild_id, group_name, exclusive)
+         VALUES ($1,$2,$3,$4,$5,$6) ON CONFLICT (message_id, emoji) DO NOTHING`,
+        [message.id, p.emoji, p.role, guild.id, groupName, exclusive]);
+    }
+    res.redirect(`/dashboard/${guild.id}?saved=1`);
+  }));
+
+  // Attaches a single reaction role to a message that already exists.
+  router.post('/dashboard/:guildId/reaction-roles/attach', requireAuth, wrap(async (req, res) => {
+    const guild = await verifyAccess(req, req.params.guildId);
+    if (!guild) return res.status(403).send(errorPage('No access', "You don't have Manage Server permission on that server."));
+
+    const b = req.body;
+    const channel = guild.channels.cache.get((b.channel_id || '').trim());
+    if (!channel) return res.status(400).send(errorPage('Channel not found', 'Double-check the channel ID.'));
+
+    let message;
+    try {
+      message = await channel.messages.fetch((b.message_id || '').trim());
+      await message.react((b.emoji || '').trim());
+    } catch (err) {
+      return res.status(400).send(errorPage('Couldn\'t attach', 'Message not found in that channel, or Nexoria can\'t react there.'));
+    }
+
+    await pool.query(
+      `INSERT INTO reaction_roles (message_id, emoji, role_id, guild_id, group_name, exclusive)
+       VALUES ($1,$2,$3,$4,$5,$6)
+       ON CONFLICT (message_id, emoji) DO UPDATE SET role_id=excluded.role_id, group_name=excluded.group_name, exclusive=excluded.exclusive`,
+      [message.id, b.emoji.trim(), b.role_id.trim(), guild.id, b.group || null, !!b.exclusive]);
+    res.redirect(`/dashboard/${guild.id}?saved=1`);
+  }));
+
+  // Creates a dropdown role-menu message, same as /rolemenu.
+  router.post('/dashboard/:guildId/role-menus', requireAuth, wrap(async (req, res) => {
+    const guild = await verifyAccess(req, req.params.guildId);
+    if (!guild) return res.status(403).send(errorPage('No access', "You don't have Manage Server permission on that server."));
+
+    const b = req.body;
+    const channel = guild.channels.cache.get((b.channel_id || '').trim());
+    if (!channel) return res.status(400).send(errorPage('Channel not found', 'Double-check the channel ID.'));
+
+    const me = guild.members.me;
+    if (!channel.permissionsFor(me)?.has(PermissionFlagsBits.SendMessages)) {
+      return res.status(400).send(errorPage('Missing permission', 'Nexoria can\'t send messages in that channel.'));
+    }
+
+    const options = [1, 2, 3]
+      .map(i => ({ role: (b[`role${i}`] || '').trim(), label: (b[`label${i}`] || '').trim() }))
+      .filter(o => o.role && o.label);
+    if (!options.length) return res.status(400).send(errorPage('Nothing to create', 'Provide at least one role ID + label pair.'));
+
+    const exclusive = !!b.exclusive;
+    const embed = new EmbedBuilder().setColor('Red').setTitle(b.title || 'Choose your role(s)').setDescription(b.description || '');
+    const menu = new StringSelectMenuBuilder()
+      .setCustomId('nexoria-rolemenu')
+      .setPlaceholder('Choose your role(s)')
+      .setMinValues(0)
+      .setMaxValues(exclusive ? 1 : options.length)
+      .addOptions(options.map(o => ({ label: o.label, value: o.role })));
+
+    let message;
+    try {
+      message = await channel.send({ embeds: [embed], components: [new ActionRowBuilder().addComponents(menu)] });
+    } catch (err) {
+      return res.status(400).send(errorPage('Couldn\'t post role menu', err.message || 'Discord rejected the request — check the role IDs.'));
+    }
+
+    await pool.query(
+      `INSERT INTO role_menus (message_id, guild_id, channel_id, exclusive) VALUES ($1,$2,$3,$4)
+       ON CONFLICT (message_id) DO UPDATE SET exclusive=excluded.exclusive`,
+      [message.id, guild.id, channel.id, exclusive]);
+    for (const o of options) {
+      await pool.query(
+        `INSERT INTO role_menu_options (message_id, role_id, label) VALUES ($1,$2,$3)
+         ON CONFLICT (message_id, role_id) DO UPDATE SET label=excluded.label`,
+        [message.id, o.role, o.label]);
+    }
+    res.redirect(`/dashboard/${guild.id}?saved=1`);
+  }));
+
+  router.post('/dashboard/:guildId/role-menus/delete', requireAuth, wrap(async (req, res) => {
+    const guild = await verifyAccess(req, req.params.guildId);
+    if (!guild) return res.status(403).send(errorPage('No access', "You don't have Manage Server permission on that server."));
+    await pool.query('DELETE FROM role_menu_options WHERE message_id=$1', [req.body.message_id]);
+    await pool.query('DELETE FROM role_menus WHERE guild_id=$1 AND message_id=$2', [guild.id, req.body.message_id]);
+    res.redirect(`/dashboard/${guild.id}?saved=1`);
+  }));
+
   router.post('/dashboard/:guildId', requireAuth, wrap(async (req, res) => {
     const guild = await verifyAccess(req, req.params.guildId);
     if (!guild) return res.status(403).send(errorPage('No access', "You don't have Manage Server permission on that server."));
@@ -144,11 +268,13 @@ function buildDashboard(client) {
 
     const bannedWords = (b.banned_words || '').split(',').map(w => w.trim().toLowerCase()).filter(Boolean);
     await pool.query(
-      `INSERT INTO automod_settings (guild_id, banned_words, block_invites, mass_mention_limit, spam_limit)
-       VALUES ($1,$2,$3,$4,$5)
+      `INSERT INTO automod_settings (guild_id, banned_words, block_invites, mass_mention_limit, spam_limit, ai_moderation, ai_provider)
+       VALUES ($1,$2,$3,$4,$5,$6,$7)
        ON CONFLICT (guild_id) DO UPDATE SET banned_words=excluded.banned_words, block_invites=excluded.block_invites,
-         mass_mention_limit=excluded.mass_mention_limit, spam_limit=excluded.spam_limit`,
-      [guild.id, bannedWords, !!b.block_invites, Number(b.mass_mention_limit) || 0, Number(b.spam_limit) || 0]);
+         mass_mention_limit=excluded.mass_mention_limit, spam_limit=excluded.spam_limit,
+         ai_moderation=excluded.ai_moderation, ai_provider=excluded.ai_provider`,
+      [guild.id, bannedWords, !!b.block_invites, Number(b.mass_mention_limit) || 0, Number(b.spam_limit) || 0,
+        !!b.ai_moderation, b.ai_provider || 'groq']);
 
     await pool.query(
       `INSERT INTO antiraid_settings (guild_id, enabled, join_threshold, window_seconds, action)

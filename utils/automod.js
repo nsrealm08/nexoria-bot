@@ -1,5 +1,6 @@
 const { pool } = require('../database');
 const { recordCase } = require('./cases');
+const { checkToxicity } = require('./aiModeration');
 
 const spamTracker = new Map(); // userId -> timestamps[]
 const INVITE_REGEX = /(discord\.gg|discord(app)?\.com\/invite)\/[a-zA-Z0-9-]+/i;
@@ -29,14 +30,29 @@ async function checkMessage(message) {
     timestamps.push(now);
     spamTracker.set(key, timestamps);
     if (timestamps.length > settings.spam_limit) violation = 'Spam';
+  } else if (settings.ai_moderation && (process.env.GROQ_API_KEY || process.env.GEMINI_API_KEY)) {
+    try {
+      const result = await checkToxicity(message.content, settings.ai_provider);
+      if (result?.flagged && result.confidence >= 0.6) {
+        violation = `AI-flagged (${result.category}, ${Math.round(result.confidence * 100)}% confidence)`;
+      }
+    } catch (err) {
+      console.error('AI moderation check failed (skipping this message):', err.message);
+    }
   }
 
   if (!violation) return;
 
-  await message.delete().catch(() => {});
+  const botMember = message.guild.members.me;
+  const canDelete = botMember?.permissions.has('ManageMessages');
+  if (canDelete) {
+    await message.delete().catch(() => {});
+  }
+
   await recordCase(message.guild, {
     action: 'Automod Warn', target: message.author, moderator: 'Nexoria Automod',
-    reason: `${violation}: ${message.content.slice(0, 200)}`, color: 'DarkRed'
+    reason: `${violation}${canDelete ? '' : ' (message NOT deleted — Nexoria is missing Manage Messages)'}: ${message.content.slice(0, 200)}`,
+    color: 'DarkRed'
   });
 }
 

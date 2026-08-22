@@ -268,6 +268,13 @@ const settingsPage = (guild, settings, automod, antiraid, levelRewards = [], rea
       <input type="text" name="mass_mention_limit" value="${automod?.mass_mention_limit ?? 0}">
       <label>Spam limit — messages per 5s <span style="text-transform:none; font-weight:400;">(0 = off)</span></label>
       <input type="text" name="spam_limit" value="${automod?.spam_limit ?? 0}">
+      <label class="toggle-row"><input type="checkbox" name="ai_moderation" ${automod?.ai_moderation ? 'checked' : ''}><span>AI-assisted moderation (auto-flag toxic messages)</span></label>
+      <label>AI provider</label>
+      <select name="ai_provider">
+        <option value="groq" ${(!automod?.ai_provider || automod.ai_provider === 'groq') ? 'selected' : ''}>Groq</option>
+        <option value="gemini" ${automod?.ai_provider === 'gemini' ? 'selected' : ''}>Gemini</option>
+      </select>
+      <div class="hint">Requires <code>GROQ_API_KEY</code> or <code>GEMINI_API_KEY</code> set in Render's environment — this calls an external AI API per message, so only enable it if that's acceptable for your traffic/cost.</div>
     </div>
 
     <div class="card" id="antiraid">
@@ -315,14 +322,62 @@ const settingsPage = (guild, settings, automod, antiraid, levelRewards = [], rea
           <button type="submit" class="btn-sm btn-outline">Remove</button>
         </form>
       </div>`).join('') : '<p class="empty-note">None configured.</p>'}
-    <p class="hint">New reaction roles need <code>/reactionrole</code> or <code>/reactionrole-panel</code> in Discord — they post live messages the dashboard can't compose.</p>
+
+    <h2 style="margin-top:24px; font-size:12.5px; color:var(--text-faint);">Create a new panel</h2>
+    <form method="POST" action="/dashboard/${guild.id}/reaction-roles/panel">
+      <label>Channel ID</label>
+      <input type="text" name="channel_id" placeholder="Right-click channel → Copy ID" required>
+      <label>Title</label>
+      <input type="text" name="title" placeholder="Pick your roles">
+      <label>Description</label>
+      <textarea name="description" rows="2" placeholder="React to get a role!"></textarea>
+      ${[1, 2, 3].map(i => `
+      <div style="display:flex; gap:10px; margin-top:14px;">
+        <div style="flex:1;"><label>Emoji ${i}</label><input type="text" name="emoji${i}" placeholder="🎮"></div>
+        <div style="flex:2;"><label>Role ${i} ID</label><input type="text" name="role${i}" placeholder="Role ID"></div>
+      </div>`).join('')}
+      <label class="toggle-row"><input type="checkbox" name="exclusive"><span>Exclusive (pick only one)</span></label>
+      <button type="submit" class="btn-sm" style="margin-top:18px;">Create panel</button>
+    </form>
+
+    <h2 style="margin-top:28px; font-size:12.5px; color:var(--text-faint);">Attach to an existing message</h2>
+    <form method="POST" action="/dashboard/${guild.id}/reaction-roles/attach" class="inline-form">
+      <div><label>Channel ID</label><input type="text" name="channel_id" required></div>
+      <div><label>Message ID</label><input type="text" name="message_id" required></div>
+      <div><label>Emoji</label><input type="text" name="emoji" required></div>
+      <div><label>Role ID</label><input type="text" name="role_id" required></div>
+      <button type="submit" class="btn-sm">Attach</button>
+    </form>
   </div>
 
   <div class="card" id="rolemenus">
     <h2><span class="badge">📑</span> Role menus</h2>
     ${roleMenus.length ? roleMenus.map(r => `
-      <div class="row-item"><span>Message <code>${r.message_id}</code> in <code>${r.channel_id}</code>${r.exclusive ? ' <span style="color:var(--text-faint);">(exclusive)</span>' : ''}</span></div>`).join('') : '<p class="empty-note">None configured.</p>'}
-    <p class="hint">Created with <code>/rolemenu</code> in Discord.</p>
+      <div class="row-item">
+        <span>Message <code>${r.message_id}</code> in <code>${r.channel_id}</code>${r.exclusive ? ' <span style="color:var(--text-faint);">(exclusive)</span>' : ''}</span>
+        <form method="POST" action="/dashboard/${guild.id}/role-menus/delete" style="margin:0;">
+          <input type="hidden" name="message_id" value="${r.message_id}">
+          <button type="submit" class="btn-sm btn-outline">Remove</button>
+        </form>
+      </div>`).join('') : '<p class="empty-note">None configured.</p>'}
+
+    <h2 style="margin-top:24px; font-size:12.5px; color:var(--text-faint);">Create a new role menu</h2>
+    <form method="POST" action="/dashboard/${guild.id}/role-menus">
+      <label>Channel ID</label>
+      <input type="text" name="channel_id" placeholder="Right-click channel → Copy ID" required>
+      <label>Title</label>
+      <input type="text" name="title" placeholder="Choose your role(s)">
+      <label>Description</label>
+      <textarea name="description" rows="2"></textarea>
+      ${[1, 2, 3].map(i => `
+      <div style="display:flex; gap:10px; margin-top:14px;">
+        <div style="flex:1;"><label>Role ${i} ID</label><input type="text" name="role${i}" placeholder="Role ID"></div>
+        <div style="flex:1;"><label>Label ${i}</label><input type="text" name="label${i}" placeholder="Display name"></div>
+      </div>`).join('')}
+      <label class="toggle-row"><input type="checkbox" name="exclusive"><span>Exclusive (pick only one)</span></label>
+      <button type="submit" class="btn-sm" style="margin-top:18px;">Create menu</button>
+    </form>
+    <p class="hint">Need more than 3 options? Use <code>/reactionrole-panel</code> or <code>/rolemenu</code> in Discord for up to 5.</p>
   </div>
 `, { showNav: true, sidebar: SIDEBAR(guild) });
 

@@ -20,6 +20,7 @@ const tickets = require('./commands/tickets');
 const info = require('./commands/info');
 const { startScheduler } = require('./utils/scheduler');
 const { getLang, t } = require('./utils/i18n');
+const { describePermissionError } = require('./utils/permissionCheck');
 
 const guildMemberAdd = require('./events/guildMemberAdd');
 const messageCreate = require('./events/messageCreate');
@@ -110,7 +111,8 @@ client.on('interactionCreate', async (interaction) => {
     }
   } catch (err) {
     await logError(interaction.guild, err, `interaction:${interaction.commandName || interaction.customId}`);
-    const reply = { content: '❌ Something went wrong running that command.', ephemeral: true };
+    const permissionMessage = describePermissionError(err);
+    const reply = { content: permissionMessage ? `❌ ${permissionMessage}` : '❌ Something went wrong running that command.', ephemeral: true };
     if (interaction.replied || interaction.deferred) await interaction.followUp(reply).catch(() => {});
     else await interaction.reply(reply).catch(() => {});
   }

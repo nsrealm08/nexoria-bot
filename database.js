@@ -44,7 +44,7 @@ async function init() {
     CREATE TABLE IF NOT EXISTS automod_settings (
       guild_id TEXT PRIMARY KEY, banned_words TEXT[] DEFAULT '{}',
       block_invites BOOLEAN DEFAULT FALSE, mass_mention_limit INTEGER DEFAULT 0,
-      spam_limit INTEGER DEFAULT 0
+      spam_limit INTEGER DEFAULT 0, ai_moderation BOOLEAN DEFAULT FALSE, ai_provider TEXT DEFAULT 'groq'
     );
     CREATE TABLE IF NOT EXISTS role_menus (
       message_id TEXT PRIMARY KEY, guild_id TEXT, channel_id TEXT, exclusive BOOLEAN DEFAULT FALSE
@@ -85,6 +85,8 @@ async function init() {
     ALTER TABLE reaction_roles ADD COLUMN IF NOT EXISTS exclusive BOOLEAN DEFAULT FALSE;
     ALTER TABLE settings ADD COLUMN IF NOT EXISTS ticket_channel TEXT;
     ALTER TABLE settings ADD COLUMN IF NOT EXISTS ticket_staff_role TEXT;
+    ALTER TABLE automod_settings ADD COLUMN IF NOT EXISTS ai_moderation BOOLEAN DEFAULT FALSE;
+    ALTER TABLE automod_settings ADD COLUMN IF NOT EXISTS ai_provider TEXT DEFAULT 'groq';
   `);
   console.log('✅ Database ready.');
 }

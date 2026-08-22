@@ -13,6 +13,12 @@ async function openTicket(interaction) {
     return interaction.reply({ content: '❌ The configured ticket channel no longer exists.', ephemeral: true });
   }
 
+  const me = interaction.guild.members.me;
+  const channelPerms = me ? parentChannel.permissionsFor(me) : null;
+  if (!channelPerms?.has(PermissionFlagsBits.CreatePrivateThreads)) {
+    return interaction.reply({ content: '❌ Nexoria is missing the **Create Private Threads** permission in that channel — ask a server admin to grant it.', ephemeral: true });
+  }
+
   await interaction.deferReply({ ephemeral: true });
 
   let thread;

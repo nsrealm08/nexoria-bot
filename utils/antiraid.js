@@ -10,15 +10,22 @@ async function getSettings(guildId) {
 
 async function lockdown(guild) {
   const everyone = guild.roles.everyone;
+  let succeeded = 0, failed = 0;
   for (const channel of guild.channels.cache.values()) {
     if (channel.permissionOverwrites) {
-      await channel.permissionOverwrites.edit(everyone, { SendMessages: false }).catch(() => {});
+      try {
+        await channel.permissionOverwrites.edit(everyone, { SendMessages: false });
+        succeeded++;
+      } catch {
+        failed++;
+      }
     }
   }
   await pool.query('UPDATE antiraid_settings SET locked=TRUE WHERE guild_id=$1', [guild.id]);
+  const partial = failed > 0 ? ` (${succeeded} channel${succeeded === 1 ? '' : 's'} locked, ${failed} failed — Nexoria may be missing Manage Channels in those channels)` : '';
   await recordCase(guild, {
     action: 'Anti-raid Lockdown', target: guild.name, moderator: 'Nexoria Anti-raid',
-    reason: 'Unusual join rate detected — server locked. Use /unlock to lift.', color: 'DarkRed'
+    reason: `Unusual join rate detected — server locked${partial}. Use /unlock to lift.`, color: 'DarkRed'
   });
 }
 
