@@ -66,10 +66,16 @@ function buildDashboard(client) {
     return match && botGuild ? botGuild : null;
   }
 
-  router.get('/', (req, res) => {
+  router.get('/', wrap(async (req, res) => {
     if (req.session.accessToken) return res.redirect('/dashboard');
+    const lockedUntil = await getLockUntil();
+    if (lockedUntil) {
+      const w = formatWait(lockedUntil);
+      return res.status(429).send(errorPage('Login temporarily unavailable',
+        `Discord's OAuth login is cooling down — try again after ~${w.clockTime} UTC (about ${w.minutes}m ${w.remSeconds}s). Refreshing or retrying before then won't help and may extend it further.`));
+    }
     res.send(loginPage());
-  });
+  }));
 
   router.get('/login', wrap(async (req, res) => {
     const lockedUntil = await getLockUntil();

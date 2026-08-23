@@ -27,6 +27,7 @@ const appealsSetting = require('./commands/appealsSetting');
 const milestones = require('./commands/milestones');
 const birthday = require('./commands/birthday');
 const botStatusSetting = require('./commands/botStatusSetting');
+const clearOauthLock = require('./commands/clearOauthLock');
 const { loadAndApplyStatus } = require('./utils/botStatus');
 const { startScheduler } = require('./utils/scheduler');
 const { getLang, t } = require('./utils/i18n');
@@ -56,7 +57,7 @@ const client = new Client({
 });
 
 client.commands = new Collection();
-for (const cmd of [...moderation, ...leveling, ...config, ...automod, ...misc, ...antiraid, ...suggestions, ...giveaway, ...schedule, ...language, ...tickets, ...info, ...poll, ...autorole, ...invites, ...prefixSetting, ...dmNotifySetting, ...appealsSetting, ...milestones, ...birthday, ...botStatusSetting]) {
+for (const cmd of [...moderation, ...leveling, ...config, ...automod, ...misc, ...antiraid, ...suggestions, ...giveaway, ...schedule, ...language, ...tickets, ...info, ...poll, ...autorole, ...invites, ...prefixSetting, ...dmNotifySetting, ...appealsSetting, ...milestones, ...birthday, ...botStatusSetting, ...clearOauthLock]) {
   client.commands.set(cmd.data.name, cmd);
 }
 

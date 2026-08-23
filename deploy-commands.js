@@ -21,11 +21,13 @@ const appealsSetting = require('./commands/appealsSetting');
 const milestones = require('./commands/milestones');
 const birthday = require('./commands/birthday');
 const botStatusSetting = require('./commands/botStatusSetting');
+const clearOauthLock = require('./commands/clearOauthLock');
 
 const commands = [
   ...moderation, ...leveling, ...config, ...automod, ...misc, ...antiraid, ...suggestions,
   ...giveaway, ...schedule, ...language, ...tickets, ...info, ...poll, ...autorole, ...invites,
-  ...prefixSetting, ...dmNotifySetting, ...appealsSetting, ...milestones, ...birthday, ...botStatusSetting
+  ...prefixSetting, ...dmNotifySetting, ...appealsSetting, ...milestones, ...birthday, ...botStatusSetting,
+  ...clearOauthLock
 ].map(c => c.data.toJSON());
 const rest = new REST().setToken(process.env.DISCORD_TOKEN);
 

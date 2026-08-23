@@ -7,7 +7,9 @@ async function getLockUntil() {
 }
 
 async function setLock(retryAfterSeconds) {
-  const until = Date.now() + Number(retryAfterSeconds) * 1000;
+  const MAX_LOCK_SECONDS = 3600; // 1 hour ceiling — long enough to respect Discord's cooldown, short enough that a bad value can't lock things out indefinitely
+  const capped = Math.min(Number(retryAfterSeconds) || 0, MAX_LOCK_SECONDS);
+  const until = Date.now() + capped * 1000;
   await pool.query(
     `INSERT INTO bot_config (key, value) VALUES ('oauth_locked_until', $1)
      ON CONFLICT (key) DO UPDATE SET value=excluded.value`,
