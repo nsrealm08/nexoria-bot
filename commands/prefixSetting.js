@@ -4,7 +4,7 @@ const { pool } = require('../database');
 module.exports = [
   {
     data: new SlashCommandBuilder()
-      .setName('setprefix').setDescription('Set a text prefix for a small set of quick commands (ping, avatar, rank, etc.)')
+      .setName('setprefix').setDescription('Set a text prefix so every slash command also works as a typed command')
       .addStringOption(o => o.setName('prefix').setDescription('e.g. ! or ?  (omit to disable)').setMaxLength(5))
       .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild),
     async execute(interaction) {
@@ -15,7 +15,7 @@ module.exports = [
         [interaction.guild.id, prefix || null]);
       await interaction.reply({
         content: prefix
-          ? `✅ Prefix set to \`${prefix}\`. Try \`${prefix}help\` for the available quick commands. Moderation stays slash-command-only for permission safety.`
+          ? `✅ Prefix set to \`${prefix}\`. Every command works with it now, e.g. \`${prefix}kick @user spamming\` — permissions are checked exactly like the slash version. Try \`${prefix}help\` for the full list.`
           : '✅ Prefix disabled.',
         ephemeral: true
       });

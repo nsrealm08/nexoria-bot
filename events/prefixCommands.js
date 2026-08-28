@@ -1,75 +1,81 @@
-const { EmbedBuilder, AttachmentBuilder } = require('discord.js');
-const { getRank, getLeaderboard } = require('../utils/leveling');
-const { buildRankCard } = require('../utils/rankCard');
+const { ApplicationCommandOptionType, EmbedBuilder } = require('discord.js');
+const { FakeInteraction } = require('./fakeInteraction');
+const { tokenize, resolveOption } = require('./prefixParser');
 
-const COMMANDS = ['ping', 'avatar', 'userinfo', 'serverinfo', 'rank', 'leaderboard', 'help'];
+// Commands that need real Discord-interaction machinery (modals, component
+// interactions) or that only make sense triggered by a button/DM, not typed
+// directly. Everything else — including moderation — is available via
+// prefix, gated by the same setDefaultMemberPermissions each command
+// already declares for its slash version.
+const EXCLUDED = new Set(['setstatus']); // owner-only global control; kept slash-only to avoid accidental typos changing bot-wide presence
 
 async function handle(message, prefix) {
   const withoutPrefix = message.content.slice(prefix.length).trim();
-  const [cmd] = withoutPrefix.split(/\s+/);
-  const name = (cmd || '').toLowerCase();
-  if (!COMMANDS.includes(name)) return false;
+  const tokens = tokenize(withoutPrefix);
+  const commandName = (tokens.shift() || '').toLowerCase();
+  if (!commandName) return false;
 
-  const mentioned = message.mentions.users.first();
-  const targetUser = mentioned || message.author;
-
-  if (name === 'help') {
-    await message.reply({ embeds: [new EmbedBuilder().setColor('Red').setTitle('Quick commands')
-      .setDescription(COMMANDS.map(c => `\`${prefix}${c}\``).join(' · ') + '\n\nFor moderation and full configuration, use Nexoria\'s slash commands (type `/`).')] });
+  if (commandName === 'help') {
+    const names = [...message.client.commands.keys()].filter(n => !EXCLUDED.has(n)).sort();
+    await message.reply({ embeds: [new EmbedBuilder().setColor('Red').setTitle('Prefix commands')
+      .setDescription(`Every slash command works here too — just use \`${prefix}\` instead of \`/\`.\n\n${names.map(n => `\`${prefix}${n}\``).join(', ')}`)] });
     return true;
   }
 
-  if (name === 'ping') {
-    await message.reply(`🏓 Pong! WS: ${message.client.ws.ping}ms`);
+  const command = message.client.commands.get(commandName);
+  if (!command || EXCLUDED.has(commandName)) return false;
+
+  const requiredPerms = command.data.default_member_permissions;
+  if (requiredPerms && !message.member.permissions.has(BigInt(requiredPerms))) {
+    await message.reply('❌ You don\'t have permission to use this command.');
     return true;
   }
 
-  if (name === 'avatar') {
-    await message.reply({ embeds: [new EmbedBuilder().setColor('Red').setTitle(`${targetUser.tag}'s avatar`).setImage(targetUser.displayAvatarURL({ size: 512 }))] });
-    return true;
+  let optionDefs = command.data.options || [];
+  let subcommand = null;
+
+  if (optionDefs.length && optionDefs[0].type === ApplicationCommandOptionType.Subcommand) {
+    const subToken = (tokens.shift() || '').toLowerCase();
+    const subDef = optionDefs.find(o => o.name === subToken);
+    if (!subDef) {
+      await message.reply(`❌ Unknown subcommand. Try: ${optionDefs.map(o => `\`${o.name}\``).join(', ')}`);
+      return true;
+    }
+    subcommand = subDef.name;
+    optionDefs = subDef.options || [];
   }
 
-  if (name === 'userinfo') {
-    const member = await message.guild.members.fetch(targetUser.id).catch(() => null);
-    const embed = new EmbedBuilder().setColor('Red').setTitle(targetUser.tag).setThumbnail(targetUser.displayAvatarURL({ size: 256 }))
-      .addFields(
-        { name: 'User ID', value: targetUser.id, inline: true },
-        { name: 'Account created', value: `<t:${Math.floor(targetUser.createdTimestamp / 1000)}:D>`, inline: true }
-      );
-    if (member?.joinedTimestamp) embed.addFields({ name: 'Joined server', value: `<t:${Math.floor(member.joinedTimestamp / 1000)}:D>`, inline: true });
-    await message.reply({ embeds: [embed] });
-    return true;
+  const resolved = new Map();
+  for (let i = 0; i < optionDefs.length; i++) {
+    const def = optionDefs[i];
+    const isTrailingString = def.type === ApplicationCommandOptionType.String && i === optionDefs.length - 1;
+    const rawValue = isTrailingString ? tokens.slice(i).join(' ') : tokens[i];
+
+    if (!rawValue) {
+      if (def.required) {
+        await message.reply(`❌ Missing required option: \`${def.name}\`. Try \`${prefix}help\` or use the slash command for guidance on each field.`);
+        return true;
+      }
+      continue;
+    }
+
+    const value = await resolveOption(rawValue, def.type, message);
+    const needsResolve = [ApplicationCommandOptionType.User, ApplicationCommandOptionType.Role, ApplicationCommandOptionType.Channel].includes(def.type);
+    if (needsResolve && !value) {
+      await message.reply(`❌ Couldn't resolve \`${def.name}\` — mention it or use a valid ID.`);
+      return true;
+    }
+    resolved.set(def.name, value);
   }
 
-  if (name === 'serverinfo') {
-    const guild = message.guild;
-    const embed = new EmbedBuilder().setColor('Red').setTitle(guild.name).setThumbnail(guild.iconURL({ size: 256 }))
-      .addFields(
-        { name: 'Members', value: String(guild.memberCount), inline: true },
-        { name: 'Created', value: `<t:${Math.floor(guild.createdTimestamp / 1000)}:D>`, inline: true },
-        { name: 'Roles', value: String(guild.roles.cache.size), inline: true }
-      );
-    await message.reply({ embeds: [embed] });
-    return true;
+  const fakeInteraction = new FakeInteraction(message, commandName, subcommand, resolved);
+  try {
+    await command.execute(fakeInteraction);
+  } catch (err) {
+    console.error(`Prefix command "${commandName}" error:`, err);
+    await message.reply('❌ Something went wrong running that command.').catch(() => {});
   }
-
-  if (name === 'rank') {
-    const row = await getRank(message.guild.id, targetUser.id) || { xp: 0, level: 0 };
-    const buffer = await buildRankCard(targetUser, row);
-    await message.reply({ files: [new AttachmentBuilder(buffer, { name: 'rank.png' })] });
-    return true;
-  }
-
-  if (name === 'leaderboard') {
-    const rows = await getLeaderboard(message.guild.id, 10);
-    if (!rows.length) { await message.reply('No leveling data yet.'); return true; }
-    const medals = ['🥇', '🥈', '🥉'];
-    const desc = rows.map((r, i) => `${medals[i] || `**#${i + 1}**`}  <@${r.user_id}> — **Level ${r.level}** · ${r.xp} XP`).join('\n');
-    await message.reply({ embeds: [new EmbedBuilder().setColor('Red').setTitle('🏆 Leaderboard').setDescription(desc)] });
-    return true;
-  }
-
-  return false;
+  return true;
 }
 
 module.exports = { handle };

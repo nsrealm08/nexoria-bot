@@ -67,7 +67,7 @@ Visit your `BASE_URL` → **Log in with Discord** → pick a server you manage �
 **Invites**: `/invites [user]` — how many members someone's invited · `/whoinvited [user]` — who invited them
 **Info**: `/serverinfo` `/userinfo` `/avatar`
 **Language**: `/language` — sets replies for ping, mod actions, welcome, and level-up to en/es/fr/de (a foundation, not every command yet)
-**Prefix**: `/setprefix` — optional text-command shortcut for a small read-only set (ping, avatar, userinfo, serverinfo, rank, leaderboard, help). Moderation stays slash-only for permission safety.
+**Prefix**: `/setprefix` — every command (moderation included) becomes available as a typed command, e.g. `!kick @user spamming`. Permissions are enforced the same way as the slash version — the prefix system checks the same `default_member_permissions` each command already declares, so it's not a way around Discord's own permission gating. `!help` lists everything. Only `/setstatus` stays slash-only (owner-only global control, kept off prefix to avoid an accidental typo changing the bot's presence).
 **Bot status**: `/setstatus` — **bot owner only** (needs `OWNER_ID` set), since presence is global across every server Nexoria is in, not per-server
 **Misc**: `/ping`
 
@@ -78,6 +78,7 @@ Opt-in per server via `/automod-setup ai_moderation:true` or the dashboard. Requ
 When `dm_notifications` is on (default), a ban/tempban/mute DM includes an **Appeal** button — even though the user is banned from the server, Discord still lets the bot DM them directly. Clicking it opens a modal asking for their reasoning; submitting posts it to the appeals channel with **Unban**/**Unmute** and **Deny** buttons for staff (requires Manage Server). No appeals channel configured → the user gets a clear "not set up yet" message instead of a silent failure.
 
 ## Notes
+- **Prefix argument syntax**: options fill in left-to-right in the order they're defined for that command — check a command's `/` version in Discord to see that order. Mention users/roles/channels normally (`@user`, `@role`, `#channel`) or paste their ID. Wrap multi-word values that aren't the last option in quotes, e.g. `!poll create "Best pizza?" Pepperoni Mushroom 60`. A trailing text option (like a mod-command `reason`) automatically grabs the rest of the message, no quotes needed.
 - **Case history**: every kick/ban/tempban/timeout/mute/warn/automod-hit/anti-raid action gets a case ID. `/modlogs @user` shows the full history; `/case id reason:"..."` edits a reason after the fact.
 - **Warning expiry**: `/setwarnexpiry days:30` auto-expires warnings (0 = never). Expired warnings drop out of `/warnings` but stay visible in `/modlogs`.
 - **Temp-bans**: `/tempban` auto-unbans on schedule — no manual follow-up needed.
