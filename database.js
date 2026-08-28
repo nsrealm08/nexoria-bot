@@ -114,6 +114,7 @@ async function init() {
     ALTER TABLE settings ADD COLUMN IF NOT EXISTS milestone_interval INTEGER;
     ALTER TABLE settings ADD COLUMN IF NOT EXISTS birthday_channel TEXT;
     ALTER TABLE settings ADD COLUMN IF NOT EXISTS transcript_channel TEXT;
+    ALTER TABLE settings ADD COLUMN IF NOT EXISTS ask_role TEXT;
     ALTER TABLE automod_settings ADD COLUMN IF NOT EXISTS ai_moderation BOOLEAN DEFAULT FALSE;
     ALTER TABLE automod_settings ADD COLUMN IF NOT EXISTS ai_provider TEXT DEFAULT 'groq';
   `);
