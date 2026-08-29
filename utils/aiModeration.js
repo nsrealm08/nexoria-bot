@@ -43,12 +43,12 @@ async function checkWithGemini(content) {
   const key = process.env.GEMINI_API_KEY;
   if (!key) return null;
 
-  const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${key}`, {
+  const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key=${key}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       contents: [{ parts: [{ text: `${SYSTEM_PROMPT}\n\nMessage: ${content}` }] }],
-      generationConfig: { temperature: 0, maxOutputTokens: 100, responseMimeType: 'application/json' }
+      generationConfig: { maxOutputTokens: 200, responseMimeType: 'application/json' }
     }),
     signal: AbortSignal.timeout(6000)
   });

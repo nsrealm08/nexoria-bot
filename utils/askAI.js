@@ -39,13 +39,13 @@ async function askGemini(question) {
   const key = process.env.GEMINI_API_KEY;
   if (!key) return null;
 
-  const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${key}`, {
+  const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key=${key}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       contents: [{ parts: [{ text: question }] }],
       systemInstruction: { parts: [{ text: 'You are a helpful, concise assistant answering questions in a Discord server. Keep answers under 300 words unless the question genuinely needs more.' }] },
-      generationConfig: { temperature: 0.7, maxOutputTokens: 700 }
+      generationConfig: { maxOutputTokens: 700 }
     }),
     signal: AbortSignal.timeout(15000)
   });
