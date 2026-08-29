@@ -18,13 +18,14 @@ async function askGroq(question) {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${key}` },
     body: JSON.stringify({
-      model: 'llama-3.1-8b-instant',
+      model: 'openai/gpt-oss-20b',
       messages: [
         { role: 'system', content: 'You are a helpful, concise assistant answering questions in a Discord server. Keep answers under 300 words unless the question genuinely needs more.' },
         { role: 'user', content: question }
       ],
       temperature: 0.7,
-      max_tokens: 700
+      max_completion_tokens: 1024,
+      reasoning_effort: 'low'
     }),
     signal: AbortSignal.timeout(15000)
   });

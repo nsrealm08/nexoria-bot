@@ -23,13 +23,14 @@ async function checkWithGroq(content) {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${key}` },
     body: JSON.stringify({
-      model: 'llama-3.1-8b-instant',
+      model: 'openai/gpt-oss-20b',
       messages: [
         { role: 'system', content: SYSTEM_PROMPT },
         { role: 'user', content }
       ],
       temperature: 0,
-      max_tokens: 100
+      max_completion_tokens: 200,
+      reasoning_effort: 'low'
     }),
     signal: AbortSignal.timeout(6000)
   });
