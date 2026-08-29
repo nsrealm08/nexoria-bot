@@ -69,13 +69,13 @@ Visit your `BASE_URL` → **Log in with Discord** → pick a server you manage �
 **Language**: `/language` — sets replies for ping, mod actions, welcome, and level-up to en/es/fr/de (a foundation, not every command yet)
 **Prefix**: `/setprefix` — every command (moderation included) becomes available as a typed command, e.g. `!kick @user spamming`. Permissions are enforced the same way as the slash version — the prefix system checks the same `default_member_permissions` each command already declares, so it's not a way around Discord's own permission gating. `!help` lists everything. Only `/setstatus` stays slash-only (owner-only global control, kept off prefix to avoid an accidental typo changing the bot's presence).
 **Bot status**: `/setstatus` — **bot owner only** (needs `OWNER_ID` set), since presence is global across every server Nexoria is in, not per-server
-**AI Q&A**: `/ask question:"..."` — role-gated via `/setaskrole`, see AI features below
+**AI Q&A**: `/ask` (auto-fallback) `/groq` `/gemini` (force one specific provider, no fallback) — all role-gated together via `/setaskrole`, see AI features below
 **Misc**: `/ping`
 
 ## AI features
 Both use the same env vars (`GROQ_API_KEY` / `GEMINI_API_KEY`) — no per-server keys are stored, the bot owner sets these once in Render.
 - **Moderation**: opt-in per server via `/automod-setup ai_moderation:true` or the dashboard. Flags messages that don't already match a rule-based filter. Neither key set → silently skipped, nothing gets flagged.
-- **`/ask`**: open Q&A, gated to a role via `/setaskrole` (nobody can use it until that's set). Tries Groq first, automatically falls back to Gemini on any failure — rate limit, server error, or missing key — so a member gets an answer either way as long as at least one provider is configured. Both fail → a clear error instead of a hang. Works via prefix too once `/setprefix` is set (`!ask what's the capital of France`).
+- **`/ask`, `/groq`, `/gemini`**: gated to a role via `/setaskrole` (nobody can use any of them until that's set). `/ask` tries Groq first and falls back to Gemini on any failure. `/groq` and `/gemini` force that specific provider with no fallback — useful for comparing answers or when you specifically want one model. Works via prefix too once `/setprefix` is set (`!ask ...`, `!groq ...`, `!gemini ...`).
 
 ## Appeals flow
 When `dm_notifications` is on (default), a ban/tempban/mute DM includes an **Appeal** button — even though the user is banned from the server, Discord still lets the bot DM them directly. Clicking it opens a modal asking for their reasoning; submitting posts it to the appeals channel with **Unban**/**Unmute** and **Deny** buttons for staff (requires Manage Server). No appeals channel configured → the user gets a clear "not set up yet" message instead of a silent failure.

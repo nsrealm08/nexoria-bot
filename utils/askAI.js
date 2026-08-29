@@ -73,4 +73,4 @@ async function askQuestion(question) {
   return null;
 }
 
-module.exports = { askQuestion };
+module.exports = { askQuestion, askGroq, askGemini, ProviderError };
