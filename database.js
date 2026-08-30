@@ -27,7 +27,9 @@ async function init() {
       ticket_channel TEXT, ticket_staff_role TEXT, autorole TEXT, command_prefix TEXT,
       dm_notifications BOOLEAN DEFAULT TRUE, appeals_channel TEXT,
       milestone_channel TEXT, milestone_interval INTEGER,
-      birthday_channel TEXT, transcript_channel TEXT
+      birthday_channel TEXT, transcript_channel TEXT, ask_role TEXT,
+      starboard_channel TEXT, starboard_emoji TEXT DEFAULT '⭐', starboard_threshold INTEGER DEFAULT 3,
+      mention_reply BOOLEAN DEFAULT FALSE
     );
     CREATE TABLE IF NOT EXISTS reaction_roles (
       message_id TEXT, emoji TEXT, role_id TEXT, guild_id TEXT,
@@ -115,6 +117,14 @@ async function init() {
     ALTER TABLE settings ADD COLUMN IF NOT EXISTS birthday_channel TEXT;
     ALTER TABLE settings ADD COLUMN IF NOT EXISTS transcript_channel TEXT;
     ALTER TABLE settings ADD COLUMN IF NOT EXISTS ask_role TEXT;
+    ALTER TABLE settings ADD COLUMN IF NOT EXISTS starboard_channel TEXT;
+    ALTER TABLE settings ADD COLUMN IF NOT EXISTS starboard_emoji TEXT DEFAULT '⭐';
+    ALTER TABLE settings ADD COLUMN IF NOT EXISTS starboard_threshold INTEGER DEFAULT 3;
+    ALTER TABLE settings ADD COLUMN IF NOT EXISTS mention_reply BOOLEAN DEFAULT FALSE;
+    CREATE TABLE IF NOT EXISTS starboard_posts (
+      guild_id TEXT, original_message_id TEXT, starboard_message_id TEXT, star_count INTEGER DEFAULT 0,
+      PRIMARY KEY (guild_id, original_message_id)
+    );
     ALTER TABLE automod_settings ADD COLUMN IF NOT EXISTS ai_moderation BOOLEAN DEFAULT FALSE;
     ALTER TABLE automod_settings ADD COLUMN IF NOT EXISTS ai_provider TEXT DEFAULT 'groq';
   `);

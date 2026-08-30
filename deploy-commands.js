@@ -23,12 +23,15 @@ const birthday = require('./commands/birthday');
 const botStatusSetting = require('./commands/botStatusSetting');
 const clearOauthLock = require('./commands/clearOauthLock');
 const ask = require('./commands/ask');
+const summarize = require('./commands/summarize');
+const starboard = require('./commands/starboard');
+const mentionReplySetting = require('./commands/mentionReplySetting');
 
 const commands = [
   ...moderation, ...leveling, ...config, ...automod, ...misc, ...antiraid, ...suggestions,
   ...giveaway, ...schedule, ...language, ...tickets, ...info, ...poll, ...autorole, ...invites,
   ...prefixSetting, ...dmNotifySetting, ...appealsSetting, ...milestones, ...birthday, ...botStatusSetting,
-  ...clearOauthLock, ...ask
+  ...clearOauthLock, ...ask, ...summarize, ...starboard, ...mentionReplySetting
 ].map(c => c.data.toJSON());
 const rest = new REST().setToken(process.env.DISCORD_TOKEN);
 

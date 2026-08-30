@@ -4,7 +4,40 @@ const { addXp, isNoXp, getLevelRewards } = require('../utils/leveling');
 const { checkMessage } = require('../utils/automod');
 const { getLang, t } = require('../utils/i18n');
 const { buildLevelUpCard } = require('../utils/levelUpCard');
+const { askQuestion } = require('../utils/askAI');
+const { checkAccessSilent } = require('../utils/aiAccess');
 const prefixCommands = require('./prefixCommands');
+
+const mentionCooldowns = new Map(); // userId -> last-used timestamp
+const MENTION_COOLDOWN_MS = 8000;
+
+async function handleMentionReply(message, settings) {
+  if (!settings?.mention_reply) return false;
+  if (!message.mentions.has(message.client.user)) return false;
+  if (!process.env.GROQ_API_KEY && !process.env.GEMINI_API_KEY) return false;
+
+  const question = message.content.replace(/<@!?\d+>/g, '').trim();
+  if (!question) return false;
+
+  const hasAccess = await checkAccessSilent(message.guild.id, message.member);
+  if (!hasAccess) return false;
+
+  const now = Date.now();
+  const last = mentionCooldowns.get(message.author.id) || 0;
+  if (now - last < MENTION_COOLDOWN_MS) return false;
+  mentionCooldowns.set(message.author.id, now);
+
+  await message.channel.sendTyping().catch(() => {});
+  const result = await askQuestion(question);
+  if (!result) {
+    await message.reply('❌ Both AI providers failed to respond — try again in a moment.').catch(() => {});
+    return true;
+  }
+
+  const answer = result.answer.length > 1900 ? `${result.answer.slice(0, 1900)}…` : result.answer;
+  await message.reply(answer).catch(() => {});
+  return true;
+}
 
 module.exports = async (message) => {
   if (message.author.bot || !message.guild) return;
@@ -19,6 +52,12 @@ module.exports = async (message) => {
     });
     if (handled) return;
   }
+
+  const mentionHandled = await handleMentionReply(message, settings).catch(err => {
+    console.error('Mention-reply error:', err);
+    return false;
+  });
+  if (mentionHandled) return;
 
   const today = new Date().toISOString().slice(0, 10);
   await pool.query(

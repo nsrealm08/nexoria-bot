@@ -1,21 +1,7 @@
 const { SlashCommandBuilder, PermissionFlagsBits, EmbedBuilder } = require('discord.js');
 const { pool } = require('../database');
 const { askQuestion, askGroq, askGemini } = require('../utils/askAI');
-
-async function checkAccess(interaction) {
-  const { rows } = await pool.query('SELECT ask_role FROM settings WHERE guild_id=$1', [interaction.guild.id]);
-  const roleId = rows[0]?.ask_role;
-
-  if (!roleId) {
-    await interaction.reply({ content: '❌ AI commands aren\'t set up on this server yet — ask an admin to run `/setaskrole`.', ephemeral: true });
-    return false;
-  }
-  if (!interaction.member.roles.cache.has(roleId)) {
-    await interaction.reply({ content: `❌ You need the <@&${roleId}> role to use this.`, ephemeral: true });
-    return false;
-  }
-  return true;
-}
+const { checkAccess } = require('../utils/aiAccess');
 
 function buildAnswerEmbed(interaction, question, answer, providerLabel) {
   const trimmed = answer.length > 3900 ? `${answer.slice(0, 3900)}…` : answer;

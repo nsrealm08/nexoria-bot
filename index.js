@@ -29,6 +29,9 @@ const birthday = require('./commands/birthday');
 const botStatusSetting = require('./commands/botStatusSetting');
 const clearOauthLock = require('./commands/clearOauthLock');
 const ask = require('./commands/ask');
+const summarize = require('./commands/summarize');
+const starboard = require('./commands/starboard');
+const mentionReplySetting = require('./commands/mentionReplySetting');
 const { loadAndApplyStatus } = require('./utils/botStatus');
 const { startScheduler } = require('./utils/scheduler');
 const { getLang, t } = require('./utils/i18n');
@@ -38,6 +41,7 @@ const { cacheAllGuilds, cacheGuildInvites } = require('./utils/inviteTracker');
 const guildMemberAdd = require('./events/guildMemberAdd');
 const messageCreate = require('./events/messageCreate');
 const reactionRoles = require('./events/reactionRoles');
+const { handleReactionChange: handleStarboardChange } = require('./utils/starboard');
 const roleMenu = require('./events/roleMenu');
 const suggestionReview = require('./events/suggestionReview');
 const ticketHandler = require('./events/ticketHandler');
@@ -58,7 +62,7 @@ const client = new Client({
 });
 
 client.commands = new Collection();
-for (const cmd of [...moderation, ...leveling, ...config, ...automod, ...misc, ...antiraid, ...suggestions, ...giveaway, ...schedule, ...language, ...tickets, ...info, ...poll, ...autorole, ...invites, ...prefixSetting, ...dmNotifySetting, ...appealsSetting, ...milestones, ...birthday, ...botStatusSetting, ...clearOauthLock, ...ask]) {
+for (const cmd of [...moderation, ...leveling, ...config, ...automod, ...misc, ...antiraid, ...suggestions, ...giveaway, ...schedule, ...language, ...tickets, ...info, ...poll, ...autorole, ...invites, ...prefixSetting, ...dmNotifySetting, ...appealsSetting, ...milestones, ...birthday, ...botStatusSetting, ...clearOauthLock, ...ask, ...summarize, ...starboard, ...mentionReplySetting]) {
   client.commands.set(cmd.data.name, cmd);
 }
 
@@ -103,8 +107,14 @@ process.on('unhandledRejection', (err) => console.error('⚠️ Unhandled reject
 
 client.on('guildMemberAdd', (m) => guildMemberAdd(m).catch(err => logError(m.guild, err, 'guildMemberAdd')));
 client.on('messageCreate', (m) => messageCreate(m).catch(err => logError(m.guild, err, 'messageCreate')));
-client.on('messageReactionAdd', (r, u) => reactionRoles.add(r, u).catch(err => logError(r.message.guild, err, 'reactionAdd')));
-client.on('messageReactionRemove', (r, u) => reactionRoles.remove(r, u).catch(err => logError(r.message.guild, err, 'reactionRemove')));
+client.on('messageReactionAdd', (r, u) => {
+  reactionRoles.add(r, u).catch(err => logError(r.message.guild, err, 'reactionAdd'));
+  handleStarboardChange(r, u).catch(err => logError(r.message.guild, err, 'starboard'));
+});
+client.on('messageReactionRemove', (r, u) => {
+  reactionRoles.remove(r, u).catch(err => logError(r.message.guild, err, 'reactionRemove'));
+  handleStarboardChange(r, u).catch(err => logError(r.message.guild, err, 'starboard'));
+});
 
 const commandCooldowns = new Map(); // userId -> last command timestamp
 const COOLDOWN_MS = 2000;

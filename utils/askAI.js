@@ -3,6 +3,8 @@
 // same env vars (GROQ_API_KEY / GEMINI_API_KEY) since both features are
 // "bring your own AI key" and there's no reason to require two.
 
+const DEFAULT_SYSTEM_PROMPT = 'You are a helpful, concise assistant answering questions in a Discord server. Keep answers under 300 words unless the question genuinely needs more.';
+
 class ProviderError extends Error {
   constructor(message, status) {
     super(message);
@@ -10,7 +12,7 @@ class ProviderError extends Error {
   }
 }
 
-async function askGroq(question) {
+async function askGroq(question, systemPrompt = DEFAULT_SYSTEM_PROMPT) {
   const key = process.env.GROQ_API_KEY;
   if (!key) return null;
 
@@ -20,14 +22,14 @@ async function askGroq(question) {
     body: JSON.stringify({
       model: 'openai/gpt-oss-20b',
       messages: [
-        { role: 'system', content: 'You are a helpful, concise assistant answering questions in a Discord server. Keep answers under 300 words unless the question genuinely needs more.' },
+        { role: 'system', content: systemPrompt },
         { role: 'user', content: question }
       ],
       temperature: 0.7,
       max_completion_tokens: 1024,
       reasoning_effort: 'low'
     }),
-    signal: AbortSignal.timeout(15000)
+    signal: AbortSignal.timeout(20000)
   });
 
   if (!res.ok) throw new ProviderError(`Groq failed: ${res.status}`, res.status);
@@ -35,7 +37,7 @@ async function askGroq(question) {
   return data.choices?.[0]?.message?.content?.trim() || null;
 }
 
-async function askGemini(question) {
+async function askGemini(question, systemPrompt = DEFAULT_SYSTEM_PROMPT) {
   const key = process.env.GEMINI_API_KEY;
   if (!key) return null;
 
@@ -44,10 +46,10 @@ async function askGemini(question) {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       contents: [{ parts: [{ text: question }] }],
-      systemInstruction: { parts: [{ text: 'You are a helpful, concise assistant answering questions in a Discord server. Keep answers under 300 words unless the question genuinely needs more.' }] },
-      generationConfig: { maxOutputTokens: 700 }
+      systemInstruction: { parts: [{ text: systemPrompt }] },
+      generationConfig: { maxOutputTokens: 1024 }
     }),
-    signal: AbortSignal.timeout(15000)
+    signal: AbortSignal.timeout(20000)
   });
 
   if (!res.ok) throw new ProviderError(`Gemini failed: ${res.status}`, res.status);
@@ -55,22 +57,22 @@ async function askGemini(question) {
   return data.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || null;
 }
 
-async function askQuestion(question) {
+async function askQuestion(question, systemPrompt = DEFAULT_SYSTEM_PROMPT) {
   try {
-    const answer = await askGroq(question);
+    const answer = await askGroq(question, systemPrompt);
     if (answer) return { answer, provider: 'groq' };
   } catch (err) {
-    console.warn('Groq /ask failed, falling back to Gemini:', err.message);
+    console.warn('Groq call failed, falling back to Gemini:', err.message);
   }
 
   try {
-    const answer = await askGemini(question);
+    const answer = await askGemini(question, systemPrompt);
     if (answer) return { answer, provider: 'gemini' };
   } catch (err) {
-    console.warn('Gemini /ask fallback also failed:', err.message);
+    console.warn('Gemini fallback also failed:', err.message);
   }
 
   return null;
 }
 
-module.exports = { askQuestion, askGroq, askGemini, ProviderError };
+module.exports = { askQuestion, askGroq, askGemini, ProviderError, DEFAULT_SYSTEM_PROMPT };
