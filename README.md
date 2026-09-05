@@ -72,6 +72,8 @@ Visit your `BASE_URL` → **Log in with Discord** → pick a server you manage �
 **AI Q&A**: `/ask` (auto-fallback) `/groq` `/gemini` (force one specific provider, no fallback) — all role-gated together via `/setaskrole`, see AI features below
 **AI summary**: `/summarize [messages]` — summarizes the last N messages in the channel (default 50, max 100), same role gate and providers as `/ask`
 **AI @mention reply**: `/setmentionreply enabled:true` — Nexoria answers when directly @mentioned in a message, no command needed. Same role gate, 8s per-user cooldown, silent (no response) if the user lacks the role rather than a public denial
+**Memes**: `/setmemes #channel interval:60 subreddits:memes,dankmemes` — auto-posts a meme on a timer via meme-api.com, NSFW/spoiler-tagged posts filtered out
+**Question of the Day**: `/setqotd #channel hour:9` — daily discussion question at a set UTC hour; AI-generated if Groq/Gemini is configured, otherwise picked from a curated 20-question list
 **Starboard**: `/setstarboard #channel emoji:⭐ threshold:3` — messages hitting the reaction threshold get cross-posted, star count updates live as reactions change
 **Misc**: `/ping`
 

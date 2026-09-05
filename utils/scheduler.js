@@ -2,6 +2,9 @@ const { pool } = require('../database');
 const { pickWinners } = require('./giveaway');
 const { pruneExpiredWarnings, processExpiredTempbans } = require('./cases');
 const { buildResultsEmbed } = require('./pollResults');
+const { fetchMeme } = require('./memeFetcher');
+const { generateQuestion } = require('./qotd');
+const { EmbedBuilder } = require('discord.js');
 
 async function processGiveaways(client) {
   const { rows } = await pool.query('SELECT * FROM giveaways WHERE ended=FALSE AND end_time <= $1', [Date.now()]);
@@ -95,6 +98,65 @@ async function checkBirthdays(client) {
   }
 }
 
+async function processMemes(client) {
+  const { rows } = await pool.query(
+    `SELECT guild_id, meme_channel, meme_interval_minutes, meme_subreddits, meme_last_sent FROM settings
+     WHERE meme_channel IS NOT NULL AND meme_interval_minutes IS NOT NULL`);
+
+  for (const s of rows) {
+    const due = !s.meme_last_sent || Date.now() - Number(s.meme_last_sent) >= s.meme_interval_minutes * 60000;
+    if (!due) continue;
+
+    const channel = client.channels.cache.get(s.meme_channel);
+    if (!channel) continue;
+
+    try {
+      const meme = await fetchMeme(s.meme_subreddits);
+      if (meme) {
+        const embed = new EmbedBuilder()
+          .setColor('Red')
+          .setTitle(meme.title.slice(0, 250))
+          .setURL(meme.postLink)
+          .setImage(meme.url)
+          .setFooter({ text: `r/${meme.subreddit} · u/${meme.author} · 👍 ${meme.ups}` });
+        await channel.send({ embeds: [embed] });
+      }
+    } catch (err) {
+      console.error(`Meme fetch failed for guild ${s.guild_id}:`, err.message);
+    }
+    await pool.query('UPDATE settings SET meme_last_sent=$1 WHERE guild_id=$2', [Date.now(), s.guild_id]);
+  }
+}
+
+async function processQOTD(client) {
+  const now = new Date();
+  const currentHour = now.getUTCHours();
+  const today = now.toISOString().slice(0, 10);
+
+  const { rows } = await pool.query(
+    `SELECT guild_id, qotd_channel, qotd_hour FROM settings
+     WHERE qotd_channel IS NOT NULL AND qotd_hour=$1 AND (qotd_last_date IS NULL OR qotd_last_date != $2)`,
+    [currentHour, today]);
+
+  for (const s of rows) {
+    const channel = client.channels.cache.get(s.qotd_channel);
+    if (!channel) continue;
+
+    // Mark as sent immediately to prevent double-posting if this tick is
+    // slow or two ticks overlap during the same hour window.
+    await pool.query('UPDATE settings SET qotd_last_date=$1 WHERE guild_id=$2', [today, s.guild_id]);
+
+    try {
+      const question = await generateQuestion();
+      await channel.send({ embeds: [new EmbedBuilder().setColor('Red')
+        .setTitle('🤔 Question of the Day').setDescription(question)] });
+    } catch (err) {
+      console.error(`QOTD failed for guild ${s.guild_id}:`, err.message);
+    }
+  }
+}
+
+
 function startScheduler(client) {
   let lastStatDay = null;
 
@@ -105,6 +167,8 @@ function startScheduler(client) {
       await processExpiredTempbans(client);
       await pruneExpiredWarnings();
       await processPolls(client);
+      await processMemes(client);
+      await processQOTD(client);
 
       const today = new Date().toISOString().slice(0, 10);
       if (today !== lastStatDay) {
@@ -117,7 +181,7 @@ function startScheduler(client) {
     }
   }, 30000);
 
-  console.log('⏱️  Scheduler started (giveaways, announcements, tempbans, polls, birthdays, stats — every 30s).');
+  console.log('⏱️  Scheduler started (giveaways, announcements, tempbans, polls, birthdays, memes, QOTD, stats — every 30s).');
 }
 
 module.exports = { startScheduler, finalizePoll };

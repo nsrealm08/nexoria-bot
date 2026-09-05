@@ -29,7 +29,9 @@ async function init() {
       milestone_channel TEXT, milestone_interval INTEGER,
       birthday_channel TEXT, transcript_channel TEXT, ask_role TEXT,
       starboard_channel TEXT, starboard_emoji TEXT DEFAULT '⭐', starboard_threshold INTEGER DEFAULT 3,
-      mention_reply BOOLEAN DEFAULT FALSE
+      mention_reply BOOLEAN DEFAULT FALSE,
+      meme_channel TEXT, meme_interval_minutes INTEGER, meme_subreddits TEXT, meme_last_sent BIGINT,
+      qotd_channel TEXT, qotd_hour INTEGER DEFAULT 9, qotd_last_date TEXT
     );
     CREATE TABLE IF NOT EXISTS reaction_roles (
       message_id TEXT, emoji TEXT, role_id TEXT, guild_id TEXT,
@@ -121,6 +123,13 @@ async function init() {
     ALTER TABLE settings ADD COLUMN IF NOT EXISTS starboard_emoji TEXT DEFAULT '⭐';
     ALTER TABLE settings ADD COLUMN IF NOT EXISTS starboard_threshold INTEGER DEFAULT 3;
     ALTER TABLE settings ADD COLUMN IF NOT EXISTS mention_reply BOOLEAN DEFAULT FALSE;
+    ALTER TABLE settings ADD COLUMN IF NOT EXISTS meme_channel TEXT;
+    ALTER TABLE settings ADD COLUMN IF NOT EXISTS meme_interval_minutes INTEGER;
+    ALTER TABLE settings ADD COLUMN IF NOT EXISTS meme_subreddits TEXT;
+    ALTER TABLE settings ADD COLUMN IF NOT EXISTS meme_last_sent BIGINT;
+    ALTER TABLE settings ADD COLUMN IF NOT EXISTS qotd_channel TEXT;
+    ALTER TABLE settings ADD COLUMN IF NOT EXISTS qotd_hour INTEGER DEFAULT 9;
+    ALTER TABLE settings ADD COLUMN IF NOT EXISTS qotd_last_date TEXT;
     CREATE TABLE IF NOT EXISTS starboard_posts (
       guild_id TEXT, original_message_id TEXT, starboard_message_id TEXT, star_count INTEGER DEFAULT 0,
       PRIMARY KEY (guild_id, original_message_id)

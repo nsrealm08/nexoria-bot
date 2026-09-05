@@ -26,12 +26,14 @@ const ask = require('./commands/ask');
 const summarize = require('./commands/summarize');
 const starboard = require('./commands/starboard');
 const mentionReplySetting = require('./commands/mentionReplySetting');
+const memes = require('./commands/memes');
+const qotd = require('./commands/qotd');
 
 const commands = [
   ...moderation, ...leveling, ...config, ...automod, ...misc, ...antiraid, ...suggestions,
   ...giveaway, ...schedule, ...language, ...tickets, ...info, ...poll, ...autorole, ...invites,
   ...prefixSetting, ...dmNotifySetting, ...appealsSetting, ...milestones, ...birthday, ...botStatusSetting,
-  ...clearOauthLock, ...ask, ...summarize, ...starboard, ...mentionReplySetting
+  ...clearOauthLock, ...ask, ...summarize, ...starboard, ...mentionReplySetting, ...memes, ...qotd
 ].map(c => c.data.toJSON());
 const rest = new REST().setToken(process.env.DISCORD_TOKEN);
 
